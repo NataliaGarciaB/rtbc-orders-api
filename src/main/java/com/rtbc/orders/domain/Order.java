@@ -1,5 +1,6 @@
 package com.rtbc.orders.domain;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -59,5 +60,14 @@ public final class Order {
 
 	public OrderStatus status() {
 		return status;
+	}
+
+	/**
+	 * RN-03: siempre calculado a partir de las líneas; nunca se recibe del cliente (ADR-007).
+	 */
+	public BigDecimal total() {
+		return products.stream()
+				.map(ProductLine::subtotal)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 }

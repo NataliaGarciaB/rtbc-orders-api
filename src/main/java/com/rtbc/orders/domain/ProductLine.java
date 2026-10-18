@@ -26,4 +26,8 @@ public record ProductLine(String productId, int quantity, BigDecimal unitPrice) 
 					"el valor unitario admite máximo " + UNIT_PRICE_MAX_DECIMALS + " decimales");
 		}
 	}
+
+	public BigDecimal subtotal() {
+		return unitPrice.multiply(BigDecimal.valueOf(quantity));
+	}
 }
