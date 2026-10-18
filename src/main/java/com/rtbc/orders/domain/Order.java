@@ -66,18 +66,7 @@ public final class Order {
 		if (target == null) {
 			throw new ValidationException("estado", "el estado es obligatorio");
 		}
-		boolean allowed = switch (status) {
-			case CREADA -> target == OrderStatus.PAGADA || target == OrderStatus.CANCELADA;
-			case PAGADA -> target == OrderStatus.ENVIADA || target == OrderStatus.CANCELADA;
-			case ENVIADA -> target == OrderStatus.ENTREGADA || target == OrderStatus.CANCELADA;
-			case ENTREGADA, CANCELADA -> false;
-		};
-		if (!allowed && status == OrderStatus.CREADA && target == OrderStatus.ENVIADA) {
-			throw new OrderNotPaidException();
-		}
-		if (!allowed) {
-			throw new InvalidTransitionException(status, target);
-		}
+		status.ensureCanTransitionTo(target);
 		status = target;
 	}
 
