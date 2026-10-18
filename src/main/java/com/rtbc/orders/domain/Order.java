@@ -12,7 +12,7 @@ public final class Order {
 	private final UUID id;
 	private final String customer;
 	private final List<ProductLine> products;
-	private final OrderStatus status;
+	private OrderStatus status;
 
 	private Order(UUID id, String customer, List<ProductLine> products, OrderStatus status) {
 		this.id = id;
@@ -60,6 +60,25 @@ public final class Order {
 
 	public OrderStatus status() {
 		return status;
+	}
+
+	public void changeStatus(OrderStatus target) {
+		if (target == null) {
+			throw new ValidationException("estado", "el estado es obligatorio");
+		}
+		boolean allowed = switch (status) {
+			case CREADA -> target == OrderStatus.PAGADA || target == OrderStatus.CANCELADA;
+			case PAGADA -> target == OrderStatus.ENVIADA || target == OrderStatus.CANCELADA;
+			case ENVIADA -> target == OrderStatus.ENTREGADA || target == OrderStatus.CANCELADA;
+			case ENTREGADA, CANCELADA -> false;
+		};
+		if (!allowed && status == OrderStatus.CREADA && target == OrderStatus.ENVIADA) {
+			throw new OrderNotPaidException();
+		}
+		if (!allowed) {
+			throw new InvalidTransitionException(status, target);
+		}
+		status = target;
 	}
 
 	/**
