@@ -84,6 +84,56 @@ class OrderTest {
 	}
 
 	@Nested
+	@Tag("RN-03")
+	@DisplayName("RN-03: el total se calcula automáticamente")
+	class Total {
+
+		@Test
+		@DisplayName("una línea: 2 × 100000 = 200000 (ejemplo del enunciado)")
+		void unaLinea() {
+			Order order = Order.create(CUSTOMER, List.of(line("P001", 2, "100000")));
+
+			assertThat(order.total()).isEqualByComparingTo("200000");
+		}
+
+		@Test
+		@DisplayName("varias líneas: suma de cantidad × valor unitario")
+		void variasLineas() {
+			Order order = Order.create(CUSTOMER, List.of(
+					line("P001", 2, "100000"),
+					line("P002", 1, "50000"),
+					line("P003", 3, "1500")));
+
+			assertThat(order.total()).isEqualByComparingTo("254500");
+		}
+
+		@Test
+		@DisplayName("decimales sin error de redondeo: 3 × 10.50 + 1 × 0.99 = 32.49")
+		void decimalesExactos() {
+			Order order = Order.create(CUSTOMER, List.of(
+					line("P001", 3, "10.50"),
+					line("P002", 1, "0.99")));
+
+			assertThat(order.total()).isEqualByComparingTo("32.49");
+		}
+
+		@Test
+		@DisplayName("valores grandes sin desbordamiento")
+		void valoresGrandes() {
+			Order order = Order.create(CUSTOMER, List.of(
+					line("P001", Integer.MAX_VALUE, "999999999.99")));
+
+			assertThat(order.total()).isEqualByComparingTo("2147483646978525163.53");
+		}
+
+		@Test
+		@DisplayName("el subtotal de una línea es cantidad × valor unitario")
+		void subtotalDeLinea() {
+			assertThat(line("P001", 4, "2.25").subtotal()).isEqualByComparingTo("9.00");
+		}
+	}
+
+	@Nested
 	@Tag("validaciones")
 	@DisplayName("ADR-008: cliente obligatorio, máximo 120 caracteres")
 	class Cliente {
