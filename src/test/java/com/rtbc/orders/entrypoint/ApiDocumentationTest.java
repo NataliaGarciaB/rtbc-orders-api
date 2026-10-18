@@ -1,11 +1,10 @@
 package com.rtbc.orders.entrypoint;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
@@ -29,20 +28,21 @@ class ApiDocumentationTest {
 	@Test
 	@DisplayName("publica docs/api/openapi.yaml sin modificaciones")
 	void publicaContratoDeDiseno() throws Exception {
-		String contract = Files.readString(Path.of("docs/api/openapi.yaml"), StandardCharsets.UTF_8);
+		byte[] contract = Files.readAllBytes(Path.of("docs/api/openapi.yaml"));
 
 		mvc.perform(get("/openapi.yaml"))
 				.andExpect(status().isOk())
-				.andExpect(content().string(contract));
+				.andExpect(content().bytes(contract));
 	}
 
 	@Test
 	@DisplayName("Swagger UI está disponible y apunta al contrato de diseño")
 	void swaggerUiApuntaAlContrato() throws Exception {
-		mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
-		mvc.perform(get("/v3/api-docs/swagger-config"))
+		mvc.perform(get("/swagger-ui.html"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.url").value("/openapi.yaml"));
+				.andExpect(content().string(containsString("url: '/openapi.yaml'")));
+		mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+		mvc.perform(get("/webjars/swagger-ui/swagger-ui.css")).andExpect(status().isOk());
 	}
 
 	@Test
