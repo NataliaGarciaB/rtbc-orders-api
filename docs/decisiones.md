@@ -4,7 +4,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 
 | ID | Decisión | Estado |
 |---|---|---|
-| [ADR-001](#adr-001-stack-tecnológico) | Stack: Java 17 + Spring Boot 3 + Maven Wrapper | Aceptada |
+| [ADR-001](#adr-001-stack-tecnológico) | Stack: Java 17 + Spring Boot 3 + Maven Wrapper | Reemplazada parcialmente por ADR-015 (versión de Spring Boot) |
 | [ADR-002](#adr-002-arquitectura-hexagonal) | Arquitectura hexagonal validada con ArchUnit | Aceptada |
 | [ADR-003](#adr-003-persistencia-en-h2) | Persistencia en H2 vía JPA | Aceptada |
 | [ADR-004](#adr-004-máquina-de-estados-en-el-dominio) | Máquina de estados centralizada en el dominio | Aceptada |
@@ -18,6 +18,9 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 | [ADR-012](#adr-012-karate-contra-el-contenedor-en-ci) | Karate contra el contenedor en CI | Aceptada |
 | [ADR-013](#adr-013-exclusiones-de-cobertura-y-mutación) | Exclusiones de cobertura y mutación | Aceptada |
 | [ADR-014](#adr-014-versionamiento) | Conventional Commits, rama por fase, merge commit | Aceptada |
+| [ADR-015](#adr-015-spring-boot-41) | Spring Boot 4.1 en lugar de 3.x | Aceptada |
+| [ADR-016](#adr-016-bloqueo-optimista) | Bloqueo optimista para cambios de estado concurrentes | Aceptada |
+| [ADR-017](#adr-017-alcance-de-spring-en-la-capa-de-aplicación) | Spring permitido en `application`, prohibido en `domain` | Aceptada |
 
 ---
 
@@ -121,3 +124,21 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 
 ## ADR-014: Versionamiento
 - **Decisión:** se usan Conventional Commits (tipo en inglés, descripción en español), una rama por fase y PR con **merge commit**, sin squash. El merge commit conserva la secuencia TDD `test → feat → refactor` como evidencia. Cada fase cierra con un tag semántico. Detalle en [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+## ADR-015: Spring Boot 4.1
+- **Contexto:** ADR-001 fijaba Spring Boot 3. Al generar el proyecto (2026-10-18), la línea 3.x ya no está disponible en start.spring.io y el soporte OSS de 3.5 terminó el 2026-06-30. Fuente: calendario oficial de soporte de spring.io.
+- **Decisión:** Spring Boot **4.1.1**, la versión estable vigente, con soporte OSS hasta el 2027-07-31. Sigue compatible con Java 17.
+- **Consecuencia:**
+  - Spring Boot 4 usa Spring Framework 7. `ProblemDetail` (ADR-009) sigue disponible.
+  - Los starters son modulares: `spring-boot-starter-webmvc` y `spring-boot-starter-webmvc-test`.
+  - Spring Boot 4 usa Jackson 3 (paquete `tools.jackson`). En la Fase 4 se verificará que Karate, que usa Jackson 2, conviva sin conflictos en el classpath de pruebas.
+
+## ADR-016: Bloqueo optimista
+- **Contexto:** riesgo R08. Dos cambios de estado simultáneos sobre la misma orden podrían saltarse la máquina de estados, por ejemplo cancelar y entregar al mismo tiempo.
+- **Decisión:** se agrega un campo `@Version` en la entidad JPA. Si hay conflicto de versión, la API responde 409 `TRANSICION_INVALIDA`.
+- **Consecuencia:** el costo es mínimo (una columna) y no requiere bloqueos en la base de datos. Se prueba con `@DataJpaTest` en la Fase 3.
+
+## ADR-017: Alcance de Spring en la capa de aplicación
+- **Contexto:** ADR-002 prohíbe que `domain` dependa de frameworks. Hay que decidir si `application` también debe estar libre de Spring.
+- **Decisión:** `domain` solo puede depender de `java..`, y ArchUnit lo verifica. `application` puede usar anotaciones de Spring (`@Service`, `@Transactional`). Así se evita una capa extra de configuración solo para registrar los beans (KISS).
+- **Consecuencia:** las reglas de negocio siguen aisladas y probables sin framework. Los casos de uso se prueban con Mockito, sin levantar el contexto de Spring.
