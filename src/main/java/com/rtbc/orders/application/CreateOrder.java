@@ -3,7 +3,11 @@ package com.rtbc.orders.application;
 import com.rtbc.orders.domain.Order;
 import com.rtbc.orders.domain.ProductLine;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+@Service
+@Transactional
 public class CreateOrder {
 
 	private final OrderRepository repository;
