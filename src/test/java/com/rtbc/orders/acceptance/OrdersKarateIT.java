@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.intuit.karate.Results;
 import com.intuit.karate.Runner;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -15,15 +16,16 @@ import org.junit.jupiter.api.Test;
 class OrdersKarateIT {
 
 	private static final int THREADS = 4;
+	private static final String IGNORE = "~@ignore";
 
 	@Test
 	@DisplayName("todos los escenarios de aceptación pasan")
 	void escenariosDeAceptacion() {
-		Runner.Builder<?> runner = Runner.path("classpath:acceptance").outputCucumberJson(false);
 		String tags = System.getProperty("karate.tags", "");
-		if (!tags.isBlank()) {
-			runner.tags(tags);
-		}
+		// Los helpers (@ignore) solo se ejecutan cuando un escenario los llama
+		Runner.Builder<?> runner = Runner.path("classpath:acceptance")
+				.tags(tags.isBlank() ? List.of(IGNORE) : List.of(IGNORE, tags))
+				.outputCucumberJson(false);
 
 		Results results = runner.parallel(THREADS);
 
