@@ -6,6 +6,7 @@ import com.rtbc.orders.application.CreateOrder;
 import com.rtbc.orders.application.GetOrder;
 import com.rtbc.orders.application.ListOrders;
 import com.rtbc.orders.domain.Order;
+import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -43,7 +44,7 @@ class OrderController {
 	}
 
 	@PostMapping
-	ResponseEntity<OrderResponse> create(@RequestBody CreateOrderRequest request) {
+	ResponseEntity<OrderResponse> create(@Valid @RequestBody CreateOrderRequest request) {
 		Order order = createOrder.execute(request.cliente(), request.toProductLines());
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest()
 				.path("/{id}")
@@ -63,7 +64,7 @@ class OrderController {
 	}
 
 	@PatchMapping("/{id}/status")
-	OrderResponse updateStatus(@PathVariable UUID id, @RequestBody UpdateStatusRequest request) {
+	OrderResponse updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateStatusRequest request) {
 		return OrderResponse.from(changeOrderStatus.execute(id, request.estado()));
 	}
 
