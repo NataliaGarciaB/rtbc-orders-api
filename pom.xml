@@ -134,6 +134,10 @@
 						<param>com.rtbc.orders.domain.*</param>
 						<param>com.rtbc.orders.application.*</param>
 					</targetTests>
+					<!-- STRONGER: más operadores que DEFAULTS; un score alto aquí es una señal más exigente -->
+					<mutators>
+						<mutator>STRONGER</mutator>
+					</mutators>
 					<mutationThreshold>${mutation.threshold}</mutationThreshold>
 					<outputFormats>
 						<param>HTML</param>
