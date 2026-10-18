@@ -5,11 +5,16 @@ import static com.rtbc.orders.domain.OrderFixtures.line;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("Orden")
 class OrderTest {
@@ -54,6 +59,56 @@ class OrderTest {
 		@DisplayName("genera un id distinto para cada orden")
 		void generaIdUnico() {
 			assertThat(OrderFixtures.validOrder().id()).isNotEqualTo(OrderFixtures.validOrder().id());
+		}
+
+		@Test
+		@DisplayName("rechaza una lista de productos con un elemento nulo")
+		void rechazaProductoNulo() {
+			List<ProductLine> products = Arrays.asList(line(), null);
+
+			assertThatThrownBy(() -> Order.create(CUSTOMER, products))
+					.isInstanceOfSatisfying(ValidationException.class,
+							e -> assertThat(e.field()).isEqualTo("productos"));
+		}
+
+		@Test
+		@DisplayName("no se ve afectada si la lista original cambia después de crearla")
+		void copiaDefensivaDeProductos() {
+			List<ProductLine> products = new ArrayList<>(List.of(line()));
+			Order order = Order.create(CUSTOMER, products);
+
+			products.add(line());
+
+			assertThat(order.products()).hasSize(1);
+		}
+	}
+
+	@Nested
+	@Tag("validaciones")
+	@DisplayName("ADR-008: cliente obligatorio, máximo 120 caracteres")
+	class Cliente {
+
+		@ParameterizedTest(name = "rechaza cliente \"{0}\"")
+		@NullSource
+		@ValueSource(strings = { "", "   " })
+		void rechazaClienteVacio(String customer) {
+			assertThatThrownBy(() -> Order.create(customer, List.of(line())))
+					.isInstanceOfSatisfying(ValidationException.class,
+							e -> assertThat(e.field()).isEqualTo("cliente"));
+		}
+
+		@Test
+		@DisplayName("rechaza cliente de 121 caracteres")
+		void rechazaClienteDemasiadoLargo() {
+			assertThatThrownBy(() -> Order.create("a".repeat(121), List.of(line())))
+					.isInstanceOfSatisfying(ValidationException.class,
+							e -> assertThat(e.field()).isEqualTo("cliente"));
+		}
+
+		@ParameterizedTest(name = "acepta cliente de {0} caracteres")
+		@ValueSource(ints = { 1, 120 })
+		void aceptaLimitesValidos(int length) {
+			assertThat(Order.create("a".repeat(length), List.of(line())).customer()).hasSize(length);
 		}
 	}
 }
