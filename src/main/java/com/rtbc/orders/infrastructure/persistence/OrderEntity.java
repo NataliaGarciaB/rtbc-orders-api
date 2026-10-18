@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +35,10 @@ class OrderEntity {
 	@CollectionTable(name = "order_lines", joinColumns = @JoinColumn(name = "order_id"))
 	@OrderColumn(name = "line_index")
 	private List<OrderLineEmbeddable> lines = new ArrayList<>();
+
+	/** Bloqueo optimista (ADR-016): un cambio sobre una versión desactualizada falla. */
+	@Version
+	private Long version;
 
 	protected OrderEntity() {
 	}
