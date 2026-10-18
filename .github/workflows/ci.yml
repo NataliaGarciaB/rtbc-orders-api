@@ -1,0 +1,44 @@
+name: CI
+
+# Solo PR hacia main y push a main: los commits rojos intermedios del ciclo TDD
+# dentro de una rama no disparan el pipeline (ver CONTRIBUTING.md).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build y pruebas
+        run: ./mvnw -B -ntp verify
+
+      - name: Publicar reportes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-pruebas
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14

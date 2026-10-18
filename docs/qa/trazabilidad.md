@@ -43,8 +43,8 @@ Conecta cada requisito del reto con su riesgo y con las pruebas que lo cubren. S
 
 | Requisito | Riesgo | Verificación | Estado |
 |---|---|---|---|
-| Dependencias entre capas | R10 | ArchUnit | 📝 Fase 1 |
+| Dependencias entre capas | R10 | ArchUnit: `ArchitectureTest` (2 reglas) | ✅ Fase 1 |
 | Cobertura ≥ 80% de líneas y ramas | R09 | JaCoCo `check` en el build y en CI | 📝 Fase 2, 6 |
 | Mutation score ≥ 70% | R09 | PIT `mutationThreshold` en el build y en CI | 📝 Fase 2, 6 |
 | Artefacto Docker equivalente al local | R07 | Karate contra el contenedor en CI | 📝 Fase 5-6 |
-| Concurrencia (bloqueo optimista) | R08 | `@DataJpaTest` | 📝 Propuesto, por confirmar |
+| Concurrencia (bloqueo optimista, ADR-016) | R08 | `@DataJpaTest` | 📝 Fase 3 |

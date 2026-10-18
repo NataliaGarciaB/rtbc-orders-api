@@ -4,3 +4,13 @@ target/
 .vscode/
 *.log
 .DS_Store
+
+# Maven Wrapper (se descarga en la primera ejecución)
+.mvn/wrapper/maven-wrapper.jar
+
+# Eclipse / extensión Java de VS Code
+.classpath
+.project
+.settings/
+.factorypath
+bin/

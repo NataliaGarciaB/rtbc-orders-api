@@ -16,7 +16,7 @@ Dar confianza, con evidencia, de que la API cumple las reglas RN-01 a RN-06 y el
 | R05 | Una entrada inesperada provoca un 500: UUID mal formado, JSON roto, estado desconocido | — | 2 | 2 | 4 Medio | `@WebMvcTest` con entradas malformadas. Karate cubre el 404 y el estado desconocido |
 | R06 | El error filtra detalles internos: stack trace, SQL, nombres de clases | — | 1 | 3 | 3 Medio | `@WebMvcTest` verifica que el body de error no tenga `trace` ni `exception`. Configuración `server.error.include-*` en `never` |
 | R07 | El artefacto Docker se comporta distinto que en local | — | 2 | 2 | 4 Medio | Karate corre en CI contra el contenedor (ADR-012). Healthcheck en docker-compose |
-| R08 | Dos actualizaciones simultáneas sobre la misma orden dejan un estado inconsistente | RN-06 | 1 | 2 | 2 Bajo | **Propuesto:** bloqueo optimista con `@Version` en JPA (conflicto → 409). Prueba en `@DataJpaTest` |
+| R08 | Dos actualizaciones simultáneas sobre la misma orden dejan un estado inconsistente | RN-06 | 1 | 2 | 2 Bajo | Bloqueo optimista (ADR-016) con `@Version` en JPA (conflicto → 409). Prueba en `@DataJpaTest` |
 | R09 | Las pruebas pasan pero no detectan regresiones (aserciones débiles) | — | 2 | 3 | **6 Alto** | Mutation testing con PIT ≥ 70% en `domain` y `application`. Se analiza cada mutante sobreviviente |
 | R10 | La arquitectura se erosiona: el dominio depende de Spring o de JPA | — | 2 | 1 | 2 Bajo | Prueba con ArchUnit en el build |
 
