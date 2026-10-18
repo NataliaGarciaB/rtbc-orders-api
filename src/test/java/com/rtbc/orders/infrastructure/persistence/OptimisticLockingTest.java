@@ -7,6 +7,7 @@ import com.rtbc.orders.domain.Order;
 import com.rtbc.orders.domain.OrderFixtures;
 import com.rtbc.orders.domain.OrderStatus;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,18 @@ class OptimisticLockingTest {
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
+
+	@Autowired
+	private SpringDataOrderRepository jpa;
+
+	/**
+	 * Esta prueba confirma transacciones reales: limpia lo que guarda para no afectar a otras pruebas
+	 * que comparten la misma base H2 en memoria.
+	 */
+	@AfterEach
+	void limpiarDatosConfirmados() {
+		new TransactionTemplate(transactionManager).executeWithoutResult(tx -> jpa.deleteAll());
+	}
 
 	@Test
 	@DisplayName("rechaza el segundo cambio si la orden fue modificada después de leerla")
