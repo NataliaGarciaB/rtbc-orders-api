@@ -248,7 +248,8 @@ components:
           type: string
         codigo:
           type: string
-          enum: [VALIDACION, ORDEN_NO_PAGADA, ORDEN_NO_ENCONTRADA, TRANSICION_INVALIDA]
+          enum: [VALIDACION, ORDEN_NO_PAGADA, ORDEN_NO_ENCONTRADA, TRANSICION_INVALIDA, ERROR_INTERNO]
+          description: ERROR_INTERNO solo en respuestas 500, sin detalles internos (R06)
         errores:
           type: array
           description: Solo en errores de validación de campos

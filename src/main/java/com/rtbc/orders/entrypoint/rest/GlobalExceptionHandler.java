@@ -6,6 +6,8 @@ import com.rtbc.orders.domain.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -29,8 +31,11 @@ import tools.jackson.core.JacksonException;
 @RestControllerAdvice
 class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
 	static final String CODE = "codigo";
 	static final String ERRORS = "errores";
+	static final String INTERNAL_ERROR = "ERROR_INTERNO";
 	private static final String INVALID_REQUEST = "La solicitud contiene errores de validación";
 
 	@ExceptionHandler(DomainException.class)
@@ -50,6 +55,19 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.CONFLICT,
 				"La orden fue modificada por otra solicitud; consulte su estado e intente de nuevo",
 				ErrorCode.TRANSICION_INVALIDA, request.getRequestURI());
+	}
+
+	/**
+	 * R06: cualquier error no previsto responde 500 genérico; el detalle solo queda en el log.
+	 */
+	@ExceptionHandler(Exception.class)
+	ProblemDetail handleUnexpected(Exception e, HttpServletRequest request) {
+		log.error("Error inesperado en {} {}", request.getMethod(), request.getRequestURI(), e);
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+				"Ocurrió un error inesperado; intente más tarde");
+		problem.setInstance(URI.create(request.getRequestURI()));
+		problem.setProperty(CODE, INTERNAL_ERROR);
+		return problem;
 	}
 
 	/**
