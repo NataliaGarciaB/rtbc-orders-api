@@ -76,7 +76,7 @@ class RequestIdFilterTest extends OrderControllerTestSupport {
 
 		mvc.perform(get("/orders").header(HEADER, "req-42"));
 
-		assertThat(output.getOut()).contains("[req-42]").contains("Error inesperado en GET /orders");
+		assertThat(output.getOut()).contains("[req-42] ").contains("Error inesperado en GET /orders");
 		assertThat(MDC.get("requestId")).isNull();
 	}
 }
