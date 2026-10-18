@@ -13,6 +13,12 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>rtbc-orders-api</name>
 	<description>API REST para la gestión de órdenes de compra</description>
+	<licenses>
+		<license>
+			<name>MIT</name>
+			<url>https://opensource.org/licenses/MIT</url>
+		</license>
+	</licenses>
 	<properties>
 		<java.version>17</java.version>
 		<archunit.version>1.5.1</archunit.version>

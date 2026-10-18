@@ -2,6 +2,9 @@ openapi: 3.0.3
 info:
   title: RTBC Orders API
   version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   description: |
     API REST para la gestión de órdenes de compra.
     Contrato de diseño (Fase 0): la implementación debe cumplirlo.
