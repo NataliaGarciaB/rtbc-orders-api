@@ -19,6 +19,8 @@ tags:
     description: Gestión de órdenes de compra y sus transiciones de estado
 paths:
   /orders:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
     post:
       tags: [orders]
       summary: Crear orden
@@ -69,6 +71,7 @@ paths:
                   $ref: '#/components/schemas/Order'
   /orders/{id}:
     parameters:
+      - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/OrderId'
     get:
       tags: [orders]
@@ -107,6 +110,7 @@ paths:
           $ref: '#/components/responses/InvalidTransition'
   /orders/{id}/status:
     parameters:
+      - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/OrderId'
     patch:
       tags: [orders]
@@ -149,6 +153,14 @@ paths:
           $ref: '#/components/responses/InvalidTransition'
 components:
   parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: Id de correlación (ADR-019). Se reutiliza si cumple [A-Za-z0-9._-]{1,64}; si no, se genera un UUID. La respuesta siempre lo devuelve en el mismo header
+      schema:
+        type: string
+        maxLength: 64
     OrderId:
       name: id
       in: path
@@ -248,7 +260,8 @@ components:
           type: string
         codigo:
           type: string
-          enum: [VALIDACION, ORDEN_NO_PAGADA, ORDEN_NO_ENCONTRADA, TRANSICION_INVALIDA]
+          enum: [VALIDACION, ORDEN_NO_PAGADA, ORDEN_NO_ENCONTRADA, TRANSICION_INVALIDA, ERROR_INTERNO]
+          description: ERROR_INTERNO solo en respuestas 500, sin detalles internos (R06)
         errores:
           type: array
           description: Solo en errores de validación de campos

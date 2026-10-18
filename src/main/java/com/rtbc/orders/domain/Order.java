@@ -27,6 +27,21 @@ public final class Order {
 		return new Order(UUID.randomUUID(), customer, List.copyOf(products), OrderStatus.CREADA);
 	}
 
+	/**
+	 * Reconstruye una orden ya persistida. Revalida sus datos: el dominio no confía en la fuente.
+	 */
+	public static Order restore(UUID id, String customer, List<ProductLine> products, OrderStatus status) {
+		if (id == null) {
+			throw new ValidationException("id", "el id de la orden es obligatorio");
+		}
+		if (status == null) {
+			throw new ValidationException("estado", "el estado es obligatorio");
+		}
+		validateCustomer(customer);
+		validateProducts(products);
+		return new Order(id, customer, List.copyOf(products), status);
+	}
+
 	private static void validateCustomer(String customer) {
 		if (customer == null || customer.isBlank()) {
 			throw new ValidationException("cliente", "el cliente es obligatorio");

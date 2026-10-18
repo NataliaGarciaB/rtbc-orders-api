@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -130,6 +131,50 @@ class OrderTest {
 		@DisplayName("el subtotal de una línea es cantidad × valor unitario")
 		void subtotalDeLinea() {
 			assertThat(line("P001", 4, "2.25").subtotal()).isEqualByComparingTo("9.00");
+		}
+	}
+
+	@Nested
+	@DisplayName("Reconstrucción desde persistencia")
+	class Reconstruccion {
+
+		@Test
+		@DisplayName("conserva id, cliente, productos y estado")
+		void conservaDatos() {
+			UUID id = UUID.randomUUID();
+			ProductLine product = line("P001", 2, "100000");
+
+			Order order = Order.restore(id, CUSTOMER, List.of(product), OrderStatus.ENTREGADA);
+
+			assertThat(order.id()).isEqualTo(id);
+			assertThat(order.customer()).isEqualTo(CUSTOMER);
+			assertThat(order.products()).containsExactly(product);
+			assertThat(order.status()).isEqualTo(OrderStatus.ENTREGADA);
+			assertThat(order.total()).isEqualByComparingTo("200000");
+		}
+
+		@Test
+		@DisplayName("la orden reconstruida sigue aplicando las reglas de transición")
+		void aplicaReglas() {
+			Order order = Order.restore(UUID.randomUUID(), CUSTOMER, List.of(line()), OrderStatus.ENTREGADA);
+
+			assertThatThrownBy(() -> order.changeStatus(OrderStatus.CANCELADA))
+					.isInstanceOf(InvalidTransitionException.class);
+		}
+
+		@Test
+		@DisplayName("rechaza datos persistidos inválidos")
+		void rechazaDatosInvalidos() {
+			UUID id = UUID.randomUUID();
+
+			assertThatThrownBy(() -> Order.restore(null, CUSTOMER, List.of(line()), OrderStatus.CREADA))
+					.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.field()).isEqualTo("id"));
+			assertThatThrownBy(() -> Order.restore(id, CUSTOMER, List.of(line()), null))
+					.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.field()).isEqualTo("estado"));
+			assertThatThrownBy(() -> Order.restore(id, " ", List.of(line()), OrderStatus.CREADA))
+					.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.field()).isEqualTo("cliente"));
+			assertThatThrownBy(() -> Order.restore(id, CUSTOMER, List.of(), OrderStatus.CREADA))
+					.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.field()).isEqualTo("productos"));
 		}
 	}
 

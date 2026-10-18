@@ -2,7 +2,11 @@ package com.rtbc.orders.application;
 
 import com.rtbc.orders.domain.Order;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+@Service
+@Transactional(readOnly = true)
 public class GetOrder {
 
 	private final OrderRepository repository;

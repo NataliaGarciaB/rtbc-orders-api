@@ -21,6 +21,9 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 | [ADR-015](#adr-015-spring-boot-41) | Spring Boot 4.1 en lugar de 3.x | Aceptada |
 | [ADR-016](#adr-016-bloqueo-optimista) | Bloqueo optimista para cambios de estado concurrentes | Aceptada |
 | [ADR-017](#adr-017-alcance-de-spring-en-la-capa-de-aplicación) | Spring permitido en `application`, prohibido en `domain` | Aceptada |
+| [ADR-018](#adr-018-swagger-ui-con-el-contrato-de-diseño) | Swagger UI muestra el contrato de diseño, sin especificación generada | Aceptada |
+| [ADR-019](#adr-019-observabilidad-logs-de-negocio-e-id-de-correlación) | Logs de eventos de negocio e id de correlación `X-Request-Id` | Aceptada |
+| [ADR-020](#adr-020-reglas-estrictas-de-json) | Reglas estrictas de lectura y escritura de JSON | Aceptada |
 
 ---
 
@@ -142,3 +145,30 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Contexto:** ADR-002 prohíbe que `domain` dependa de frameworks. Hay que decidir si `application` también debe estar libre de Spring.
 - **Decisión:** `domain` solo puede depender de `java..`, y ArchUnit lo verifica. `application` puede usar anotaciones de Spring (`@Service`, `@Transactional`). Así se evita una capa extra de configuración solo para registrar los beans (KISS).
 - **Consecuencia:** las reglas de negocio siguen aisladas y probables sin framework. Los casos de uso se prueban con Mockito, sin levantar el contexto de Spring.
+
+## ADR-018: Swagger UI con el contrato de diseño
+- **Contexto:** el contrato `docs/api/openapi.yaml` se diseñó y revisó en la Fase 0. Una especificación generada desde el código sería una segunda fuente que puede contradecirlo. springdoc solo muestra Swagger UI si además publica la especificación generada.
+- **Decisión:** no se usa springdoc. Maven copia `docs/api/openapi.yaml` a los recursos estáticos durante el build, y `/swagger-ui.html` usa el webjar de Swagger UI para mostrarlo. `/v3/api-docs` no existe.
+- **Consecuencia:**
+  - Hay una sola fuente de verdad y el código no tiene anotaciones de documentación.
+  - Las pruebas `@WebMvcTest` y Karate verifican que la implementación cumple el contrato.
+  - `/openapi.yaml` se sirve como `application/yaml` en el servidor real (`server.mime-mappings`). MockMvc no aplica esa configuración, así que el tipo se verifica en Karate, contra el servidor real.
+
+## ADR-019: Observabilidad: logs de negocio e id de correlación
+- **Contexto:** el reto valora la observabilidad. Hace falta poder explicar qué le pasó a una orden y seguir una petición en los logs.
+- **Decisión:**
+  - Los casos de uso registran en formato `clave=valor`:
+    - `Orden creada` y `Estado cambiado`, en nivel INFO.
+    - `Transición rechazada`, en nivel WARN, con su `codigo`.
+  - Los logs no incluyen el nombre del cliente (dato personal).
+  - Un filtro asigna un `X-Request-Id` a cada petición. Si el cliente envía uno seguro (`[A-Za-z0-9._-]{1,64}`), se reutiliza; si no, se genera un UUID. Así se evita la inyección de líneas en el log.
+  - El id se publica en el MDC y en la respuesta.
+  - Los errores inesperados se registran completos en el log y nunca en la respuesta (R06).
+- **Consecuencia:** cada línea de log de una petición lleva `[requestId]`. Las pruebas verifican los mensajes, así que PIT no puede eliminar una llamada a log sin que una prueba falle. El formato JSON para Docker se configura en la Fase 5.
+
+## ADR-020: Reglas estrictas de JSON
+- **Contexto:** Jackson 3 tiene comportamientos por defecto que son riesgosos para un sistema de órdenes. Durante la Fase 3 se detectaron dos con pruebas:
+  - trunca `"cantidad": 1.5` a `1` sin avisar;
+  - escribe `BigDecimal` con escala negativa en notación científica (`1E+5`).
+- **Decisión:** `spring.jackson.deserialization.accept-float-as-int=false` (una cantidad decimal responde 400) y `spring.jackson.write.write-bigdecimal-as-plain=true`. Además, `valorUnitario` admite como máximo 17 enteros y 2 decimales (`@Digits`), para que coincida con la columna `unit_price` (precision 19, scale 2). Sin ese límite, un valor enorme provocaría un 500 en la base de datos.
+- **Consecuencia:** cada regla tiene una prueba que falla si se desactiva.
