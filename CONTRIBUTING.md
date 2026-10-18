@@ -76,5 +76,4 @@ git push origin v0.1.0
 ## Uso de IA
 Este proyecto usa asistentes de IA (Claude Code) para acelerar el trabajo. Toda contribución generada con IA:
 - pasa por PR con revisión humana antes del merge;
-- debe cumplir los mismos quality gates que el código escrito a mano;
-- queda identificada en el commit con `Co-Authored-By`.
+- debe cumplir los mismos quality gates que el código escrito a mano.
