@@ -11,7 +11,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -20,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.rtbc.orders.domain.Order;
 import com.rtbc.orders.domain.OrderFixtures;
+import com.rtbc.orders.domain.OrderStatus;
 import com.rtbc.orders.domain.ProductLine;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -90,7 +93,7 @@ class OrderControllerTest extends OrderControllerTestSupport {
 
 		@Test
 		@DisplayName("escribe los decimales sin notación científica")
-		void totalSinNotacionCientifica() throws Exception {
+		void decimalesSinNotacionCientifica() throws Exception {
 			when(createOrder.execute(anyString(), anyList()))
 					.thenReturn(Order.create(CUSTOMER, List.of(line("P001", 2, "1E+5"))));
 
@@ -115,6 +118,45 @@ class OrderControllerTest extends OrderControllerTestSupport {
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.id").value(order.id().toString()))
 					.andExpect(jsonPath("$.estado").value("CREADA"));
+		}
+	}
+
+	@Nested
+	@DisplayName("PATCH /orders/{id}/status")
+	class ActualizarEstado {
+
+		@Test
+		@DisplayName("responde 200 con la orden en el nuevo estado")
+		void actualizaEstado() throws Exception {
+			Order order = OrderFixtures.orderIn(OrderStatus.PAGADA);
+			when(changeOrderStatus.execute(order.id(), OrderStatus.PAGADA)).thenReturn(order);
+
+			mvc.perform(patch("/orders/{id}/status", order.id())
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{ "estado": "PAGADA" }
+									"""))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.id").value(order.id().toString()))
+					.andExpect(jsonPath("$.estado").value("PAGADA"));
+			verify(changeOrderStatus).execute(order.id(), OrderStatus.PAGADA);
+		}
+	}
+
+	@Nested
+	@DisplayName("DELETE /orders/{id}")
+	class Cancelar {
+
+		@Test
+		@DisplayName("ADR-006: cancela lógicamente y responde 200 con la orden CANCELADA")
+		void cancelaOrden() throws Exception {
+			Order order = OrderFixtures.orderIn(OrderStatus.CANCELADA);
+			when(cancelOrder.execute(order.id())).thenReturn(order);
+
+			mvc.perform(delete("/orders/{id}", order.id()))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.estado").value("CANCELADA"));
+			verify(cancelOrder).execute(order.id());
 		}
 	}
 
