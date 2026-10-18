@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
 
@@ -102,7 +101,7 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@Override
 	protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException e, HttpHeaders headers,
 			HttpStatusCode status, WebRequest request) {
-		String field = e instanceof MethodArgumentTypeMismatchException mismatch ? mismatch.getName() : e.getPropertyName();
+		String field = e.getPropertyName();
 		return validationError("El parámetro " + field + " tiene un formato inválido",
 				List.of(new FieldErrorResponse(field, "formato inválido")), request);
 	}
@@ -119,7 +118,7 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		for (JacksonException.Reference reference : e.getPath()) {
 			if (reference.getPropertyName() != null) {
 				path.append(path.isEmpty() ? "" : ".").append(reference.getPropertyName());
-			} else if (reference.getIndex() >= 0) {
+			} else {
 				path.append('[').append(reference.getIndex()).append(']');
 			}
 		}
