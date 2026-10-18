@@ -6,5 +6,6 @@ package com.rtbc.orders.domain;
 public enum ErrorCode {
 	VALIDACION,
 	ORDEN_NO_PAGADA,
+	ORDEN_NO_ENCONTRADA,
 	TRANSICION_INVALIDA
 }
