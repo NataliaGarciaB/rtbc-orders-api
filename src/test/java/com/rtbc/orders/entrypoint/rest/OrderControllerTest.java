@@ -89,13 +89,14 @@ class OrderControllerTest extends OrderControllerTestSupport {
 		}
 
 		@Test
-		@DisplayName("escribe el total sin notación científica")
+		@DisplayName("escribe los decimales sin notación científica")
 		void totalSinNotacionCientifica() throws Exception {
 			when(createOrder.execute(anyString(), anyList()))
 					.thenReturn(Order.create(CUSTOMER, List.of(line("P001", 2, "1E+5"))));
 
 			mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content(VALID_ORDER_JSON))
 					.andExpect(status().isCreated())
+					.andExpect(content().string(containsString("\"valorUnitario\":100000")))
 					.andExpect(content().string(containsString("\"total\":200000")));
 		}
 	}
