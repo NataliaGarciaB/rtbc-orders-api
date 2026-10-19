@@ -69,9 +69,11 @@ El build de Maven y el pipeline de CI fallan si se cumple cualquiera de estas co
 | Cobertura de ramas | ≥ 80% | JaCoCo `check` |
 | Mutation score | ≥ 70% | PIT `mutationThreshold` |
 | Reglas de arquitectura | 0 violaciones | ArchUnit |
-| (Opcional) Análisis estático | Quality Gate verde | SonarCloud |
+| Análisis estático | Quality gate de SonarCloud en verde | SonarCloud |
 
-Las exclusiones de cobertura y mutación están justificadas en [ADR-013](../decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación).
+Las exclusiones de cobertura y mutación están justificadas en [ADR-013](../decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación). SonarCloud usa las mismas.
+
+Cada gate es un job del pipeline (`build`, `mutation`, `acceptance` y `sonar`) y un check obligatorio para hacer merge a `main` ([ADR-022](../decisiones.md#adr-022-pipeline-de-ci-y-quality-gates)). El job `build` ejecuta además las pruebas en orden inverso, para detectar dependencias entre pruebas como la que se encontró en la Fase 3.
 
 ## 7. Criterios de entrada y salida por fase
 - **Entrada:** la fase anterior está cerrada con PR fusionado, el tag publicado y el CI en verde.
@@ -80,9 +82,11 @@ Las exclusiones de cobertura y mutación están justificadas en [ADR-013](../dec
 ## 8. Observabilidad y evidencias
 | Evidencia | Origen | Dónde queda |
 |---|---|---|
-| Reporte de cobertura | JaCoCo HTML | Artifact del pipeline y captura en el README |
-| Reporte de mutación | PIT HTML | Artifact del pipeline y captura en el README |
-| Reporte de aceptación | Karate HTML | Artifact del pipeline |
+| Reporte de cobertura | JaCoCo HTML | Artifact `cobertura-jacoco` del pipeline y captura en el README |
+| Reporte de mutación | PIT HTML | Artifact `mutacion-pit` del pipeline y captura en el README |
+| Reporte de aceptación | Karate HTML | Artifact `aceptacion-karate` del pipeline, con los logs del contenedor |
+| Resumen de métricas por ejecución | Resumen de cada job (cobertura, mutation score, escenarios de Karate) | Página de la ejecución en GitHub Actions |
+| Análisis estático | SonarCloud | https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api |
 | Logs de cambios y rechazos de estado | Logs estructurados de la aplicación (id de la orden, estado origen y destino, resultado) | Consola del contenedor |
 | Ejecución del pipeline | GitHub Actions | Enlace y captura en el README |
 | Demostración de que el quality gate funciona | PR `demo/quality-gate` que falla a propósito | Captura en el README |

@@ -47,7 +47,7 @@ Una rama por fase, creada desde `main` actualizado:
 ## Pull requests
 1. El título sigue Conventional Commits.
 2. La descripción incluye qué cambia, por qué, cómo se probó y qué reglas o riesgos cubre (enlace a la [matriz de trazabilidad](docs/qa/trazabilidad.md)).
-3. El CI debe estar en verde: build, pruebas, cobertura, mutación y Karate según la fase.
+3. El CI debe estar en verde. Los checks obligatorios son `build` (pruebas y cobertura ≥ 80 %), `mutation` (PIT ≥ 70 %), `acceptance` (Karate contra el contenedor) y `sonar` (quality gate de SonarCloud). Ver [ADR-022](docs/decisiones.md#adr-022-pipeline-de-ci-y-quality-gates).
 4. Se hace merge con **"Create a merge commit"**. No se usa squash ni rebase merge, para conservar la secuencia TDD como evidencia.
 5. La rama se borra después del merge.
 

@@ -47,8 +47,8 @@ Conecta cada requisito del reto con su riesgo y con las pruebas que lo cubren. S
 | Requisito | Riesgo | Verificación | Estado |
 |---|---|---|---|
 | Dependencias entre capas | R10 | ArchUnit: `ArchitectureTest` (2 reglas) | ✅ Fase 1 |
-| Cobertura ≥ 80% de líneas y ramas | R09 | JaCoCo `check` en `verify` (local y CI). Fase 3: 100% líneas (249/249), 100% ramas (57/57) | ✅ Fase 2-3 |
-| Mutation score ≥ 70% | R09 | PIT `mutationThreshold` con mutadores STRONGER sobre `domain` y `application`. Fase 3: 66/66 mutantes eliminados (100%) | 🟡 Local ✅ · CI en Fase 6 |
+| Cobertura ≥ 80% de líneas y ramas | R09 | JaCoCo `check` en `verify` (local y job `build` en CI). Fase 3: 100% líneas (249/249), 100% ramas (57/57) | ✅ Fase 2-3 |
+| Mutation score ≥ 70% | R09 | PIT `mutationThreshold` con mutadores STRONGER sobre `domain` y `application`. Fase 3: 66/66 mutantes eliminados (100%). Job `mutation` en CI | ✅ Fase 6 |
 | Persistencia fiel (BigDecimal, líneas, estado) | R02 | ✅ `JpaOrderRepositoryTest` (`@DataJpaTest`, H2) | ✅ Fase 3 |
 | Concurrencia (bloqueo optimista, ADR-016) | R08 | ✅ `OptimisticLockingTest`: dos transacciones reales, la segunda falla. ✅ `ErrorHandlingTest.modificacionConcurrente` → 409 | ✅ Fase 3 |
 | Casos de uso transaccionales | R08 | ✅ `RtbcOrdersApiApplicationTests.registraCasosDeUso` | ✅ Fase 3 |
@@ -56,6 +56,8 @@ Conecta cada requisito del reto con su riesgo y con las pruebas que lo cubren. S
 | Observabilidad: id de correlación `X-Request-Id` | R06 | ✅ `operacion.feature` (servidor real). ✅ `RequestIdFilterTest`: generación, reutilización, rechazo de valores inseguros (inyección en el log), presencia en el log, limpieza del MDC | ✅ Fase 3 |
 | Contrato publicado sin desviaciones | R04 | ✅ `ApiDocumentationTest`: `/openapi.yaml` es byte a byte `docs/api/openapi.yaml`; sin especificación generada. Tipo `application/yaml` y Swagger UI: ✅ `operacion.feature` (servidor real) | ✅ Fase 4 |
 | Pruebas de aceptación | R01-R05 | Karate: 30 escenarios en 6 features (4 obligatorios ⭐); prueba de la prueba en [estrategia-pruebas.md](estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate) | ✅ Fase 4 |
-| Artefacto Docker equivalente al local | R07 | `scripts/verificar-docker.ps1`: comandos del enunciado, contenedor `healthy`, sin root, logs JSON con `requestId` y Karate (30 escenarios) contra el contenedor con `docker compose` | 🟡 Fase 5 (validación manual) · CI en Fase 6 |
+| Artefacto Docker equivalente al local | R07 | `scripts/verificar-docker.ps1`: comandos del enunciado, contenedor `healthy`, sin root, logs JSON con `requestId` y Karate (30 escenarios) contra el contenedor con `docker compose` | ✅ Fase 5 (manual) y Fase 6: job `acceptance` en CI |
 | Endpoint de salud sin detalles | R06 | ✅ `HealthEndpointTest`: `/actuator/health` UP sin componentes; `/actuator`, `env`, `beans`, `info` y `heapdump` → 404 | ✅ Fase 5 |
-| Logs JSON en contenedor | — | ✅ `DockerProfileTest` (configuración) + `verificar-docker.ps1` (JSON con `requestId` real) | 🟡 Fase 5 |
+| Logs JSON en contenedor | — | ✅ `DockerProfileTest` (configuración) + `verificar-docker.ps1` (JSON con `requestId` real, validado en la Fase 5: 9/9 OK) | ✅ Fase 5 |
+| Pruebas independientes del orden de ejecución | R09 | Job `build`: las pruebas se ejecutan también en orden inverso | ✅ Fase 6 |
+| Análisis estático (code smells, bugs, seguridad) | R06, R09 | Job `sonar`: quality gate de SonarCloud | ✅ Fase 6 |
