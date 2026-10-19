@@ -202,5 +202,6 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 
   - `mutation`, `acceptance` y `sonar` corren en paralelo después de `build`.
   - Cada job publica sus reportes como artifacts (JaCoCo, Surefire, PIT, Karate y los logs del contenedor) y un resumen con las métricas en la ejecución.
+  - Todas las actions se fijan por SHA de commit, con la versión en un comentario. Una etiqueta como `@v7` se puede mover: si el repositorio de la action fuera comprometido, código ajeno correría en el pipeline con permiso para publicar la imagen. SonarCloud lo detectó en el primer análisis (regla S7637).
   - Los permisos son mínimos (`contents: read`). Solo `publish` tiene `packages: write`, y `sonar` no corre en PR desde forks, porque no reciben secretos.
 - **Consecuencia:** `build`, `mutation`, `acceptance` y `sonar` son checks obligatorios en el ruleset de `main`. Ningún cambio llega a `main` sin pasar los quality gates, y la imagen publicada es la misma que validó Karate. La Fase 8b consume esa imagen desde GHCR.
