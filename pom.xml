@@ -32,6 +32,14 @@
 		<mutation.threshold>70</mutation.threshold>
 		<!-- -DskipUnitTests=true: solo pruebas de aceptación (contenedor de Karate, pipeline) -->
 		<skipUnitTests>false</skipUnitTests>
+		<!-- SonarCloud (quality gate opcional del enunciado). El token llega por la variable SONAR_TOKEN en CI -->
+		<sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.organization>nataliagarciab</sonar.organization>
+		<sonar.projectKey>NataliaGarciaB_rtbc-orders-api</sonar.projectKey>
+		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<!-- Mismas exclusiones que JaCoCo (ADR-013) para que ambas herramientas midan lo mismo -->
+		<sonar.coverage.exclusions>**/RtbcOrdersApiApplication.java</sonar.coverage.exclusions>
 		<!-- Karate 1.5.x: compatible con Java 17 (Karate 2.x requiere Java 21) -->
 		<karate.version>1.5.2</karate.version>
 	</properties>
@@ -101,6 +109,16 @@
 	</dependencies>
 
 	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<!-- Ejecutar: ./mvnw verify sonar:sonar (requiere SONAR_TOKEN) -->
+					<groupId>org.sonarsource.scanner.maven</groupId>
+					<artifactId>sonar-maven-plugin</artifactId>
+					<version>${sonar-maven-plugin.version}</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 		<resources>
 			<resource>
 				<directory>src/main/resources</directory>
