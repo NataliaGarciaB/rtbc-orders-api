@@ -30,6 +30,8 @@
 		<pitest-junit5.version>1.2.3</pitest-junit5.version>
 		<!-- Quality gate de mutación (ADR-011) -->
 		<mutation.threshold>70</mutation.threshold>
+		<!-- Karate 1.5.x: compatible con Java 17 (Karate 2.x requiere Java 21) -->
+		<karate.version>1.5.2</karate.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -80,6 +82,13 @@
 			<!-- Requerido por pitest-junit5-plugin; versión alineada por el BOM de Spring Boot -->
 			<groupId>org.junit.platform</groupId>
 			<artifactId>junit-platform-launcher</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Solo el motor de Karate: el runner es una prueba JUnit propia (sin karate-junit5) -->
+			<groupId>io.karatelabs</groupId>
+			<artifactId>karate-core</artifactId>
+			<version>${karate.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -191,5 +200,78 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<!--
+				Pruebas de aceptación con Karate (Fase 4).
+				Local:  ./mvnw verify -Pacceptance                  (levanta la app, corre Karate y la apaga)
+				Docker: ./mvnw verify -Pacceptance -Dkarate.env=docker -Dacceptance.skipAppStart=true
+				Filtro: -Dkarate.tags=@RN-05
+			-->
+			<id>acceptance</id>
+			<properties>
+				<acceptance.port>18080</acceptance.port>
+				<acceptance.skipAppStart>false</acceptance.skipAppStart>
+				<karate.env>local</karate.env>
+				<karate.tags></karate.tags>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>start-app</id>
+								<phase>pre-integration-test</phase>
+								<goals>
+									<goal>start</goal>
+								</goals>
+								<configuration>
+									<skip>${acceptance.skipAppStart}</skip>
+									<arguments>
+										<argument>--server.port=${acceptance.port}</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							<execution>
+								<id>stop-app</id>
+								<phase>post-integration-test</phase>
+								<goals>
+									<goal>stop</goal>
+								</goals>
+								<configuration>
+									<skip>${acceptance.skipAppStart}</skip>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<includes>
+								<include>**/*KarateIT.java</include>
+							</includes>
+							<systemPropertyVariables>
+								<karate.env>${karate.env}</karate.env>
+								<karate.tags>${karate.tags}</karate.tags>
+								<acceptance.port>${acceptance.port}</acceptance.port>
+							</systemPropertyVariables>
+						</configuration>
+						<executions>
+							<execution>
+								<goals>
+									<goal>integration-test</goal>
+									<goal>verify</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

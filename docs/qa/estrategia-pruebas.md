@@ -86,3 +86,50 @@ Las exclusiones de cobertura y mutación están justificadas en [ADR-013](../dec
 | Logs de cambios y rechazos de estado | Logs estructurados de la aplicación (id de la orden, estado origen y destino, resultado) | Consola del contenedor |
 | Ejecución del pipeline | GitHub Actions | Enlace y captura en el README |
 | Demostración de que el quality gate funciona | PR `demo/quality-gate` que falla a propósito | Captura en el README |
+
+## 9. Pruebas de aceptación con Karate
+
+**Ejecución:**
+
+| Comando | Qué hace |
+|---|---|
+| `./mvnw verify -Pacceptance` | Levanta la aplicación en el puerto 18080, corre todos los escenarios en paralelo (4 hilos) y la apaga |
+| `./mvnw verify -Pacceptance -Dkarate.tags=@RN-05` | Corre solo los escenarios de una regla |
+| `./mvnw verify -Pacceptance -Dkarate.env=docker -Dacceptance.skipAppStart=true` | Corre contra el contenedor en el puerto 8080 (Fases 5 y 6, ADR-012) |
+
+El reporte HTML queda en `target/karate-reports/karate-summary.html`.
+
+**Diseño:**
+- **Datos independientes:** cada escenario crea sus propias órdenes con helpers reutilizables, por eso pueden correr en paralelo sin depender del orden.
+- **Validación de forma:** se valida la estructura del contrato con marcadores (`#uuid`, `#number`) y se evitan valores frágiles.
+- **Sin falsos verdes:** si un filtro de etiquetas no selecciona ningún escenario, el runner falla.
+
+**Escenarios obligatorios del PDF (⭐) y escenarios adicionales justificados por riesgo:**
+
+| Feature | Escenario | Código | Justificación |
+|---|---|---|---|
+| `crear` | ⭐ Crear una orden válida | 201 | Obligatorio. Además valida la estructura del contrato y el header `Location` |
+| `consultar` | ⭐ Consultar una orden existente | 200 | Obligatorio |
+| `transiciones` | ⭐ Intentar enviar una orden no pagada | 400 | Obligatorio (RN-05) |
+| `transiciones` | ⭐ Intentar cancelar una orden entregada | 409 | Obligatorio (RN-04). Además verifica que la orden no cambió |
+| `crear` | El total ignora `total` y `estado` enviados | 201 | **R02:** el cliente no puede manipular el total (RN-03) |
+| `crear` | Total de varias líneas con decimales, persistido | 201 / 200 | **R02:** precisión de punta a punta, incluida la base de datos |
+| `transiciones` | Muestra de la matriz: 4 válidas y 4 inválidas | 200 / 409 | **R01**, el riesgo más alto (RN-06). Las 25 combinaciones ya están completas en las pruebas unitarias; aquí basta una muestra por tipo de transición |
+| `transiciones` | Flujo completo hasta `ENTREGADA` | 200 | **R01:** el camino feliz completo en el sistema integrado |
+| `validaciones` | Sin productos, cantidad 0, cliente vacío, valor 0, 3 decimales, estado desconocido, id no UUID | 400 | **R03 y R05:** las validaciones funcionan en el artefacto real. Los valores límite completos están en las pruebas unitarias y de integración |
+| `consultar` | Orden inexistente | 404 | **R05:** un id inexistente no provoca un 500 |
+| `consultar` | Listar incluye la orden creada | 200 | Cubre el endpoint `GET /orders` del PDF |
+| `cancelar` | Cancelación lógica: la orden sigue consultable | 200 | ADR-006: el DELETE no borra |
+| `cancelar` | Cancelar una orden ya cancelada | 409 | **R01:** `CANCELADA` es un estado final |
+| `operacion` | `/openapi.yaml` se sirve como `application/yaml` y Swagger UI está disponible | 200 | **R04 y ADR-018:** MockMvc no puede verificar el tipo; el servidor real sí |
+| `operacion` | `X-Request-Id` generado, reutilizado o reemplazado si es inseguro | 200 | ADR-019: observabilidad y prevención de inyección en el log |
+
+**Prueba de la prueba:** se introdujo temporalmente un defecto por cada escenario obligatorio y otro en la configuración del contrato. En todos los casos el escenario falló por el motivo esperado; después se restauró el código.
+
+| Defecto inyectado | Escenario | Resultado |
+|---|---|---|
+| POST responde 200 | Crear una orden válida | Falla: `status code was: 200, expected: 201` |
+| GET de una orden existente responde 404 | Consultar una orden existente | Falla: `404, expected: 200` |
+| Se permite `CREADA → ENVIADA` | RN-05 | Falla: `200, expected: 400` |
+| Se permite `ENTREGADA → CANCELADA` | RN-04 | Falla: `200, expected: 409` |
+| Sin `server.mime-mappings.yaml` | Contrato publicado | Falla: `application/octet-stream` |
