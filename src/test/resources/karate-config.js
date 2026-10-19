@@ -1,10 +1,12 @@
 function fn() {
-  // Entorno: local (app levantada por Maven en acceptance.port) o docker (contenedor en 8080)
+  // Entorno: local (app levantada por Maven en acceptance.port), docker (contenedor publicado en 8080)
+  // o compose (Karate dentro de docker compose, en la misma red que el servicio api)
   var env = karate.env || 'local';
   var port = karate.properties['acceptance.port'] || '18080';
   var baseUrls = {
     local: 'http://localhost:' + port,
-    docker: 'http://localhost:8080'
+    docker: 'http://localhost:8080',
+    compose: 'http://api:8080'
   };
   var baseUrl = baseUrls[env];
   if (!baseUrl) {
