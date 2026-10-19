@@ -193,8 +193,11 @@ jobs:
   sonar:
     name: sonar
     needs: build
-    # Los PR desde forks no reciben secretos: el análisis solo corre para ramas de este repositorio
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # Los PR desde forks no reciben secretos: el análisis solo corre para ramas de este repositorio.
+    # En tags no se analiza: el mismo commit ya se analizó en main, y SonarCloud registraría el tag como otra rama.
+    if: >-
+      github.ref_type != 'tag' &&
+      (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -218,7 +221,8 @@ jobs:
   publish:
     name: publish
     needs: [build, mutation, acceptance, sonar]
-    if: github.event_name == 'push'
+    # Publica si ningún job falló; sonar se omite en tags y eso no debe impedir publicar la versión
+    if: github.event_name == 'push' && !failure() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
