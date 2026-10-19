@@ -16,7 +16,7 @@ public enum OrderStatus {
 	CANCELADA;
 
 	private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
-			CREADA, EnumSet.of(PAGADA, ENVIADA, CANCELADA),
+			CREADA, EnumSet.of(PAGADA, CANCELADA),
 			PAGADA, EnumSet.of(ENVIADA, CANCELADA),
 			ENVIADA, EnumSet.of(ENTREGADA, CANCELADA),
 			ENTREGADA, EnumSet.noneOf(OrderStatus.class),
