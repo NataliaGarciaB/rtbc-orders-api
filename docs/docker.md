@@ -61,3 +61,21 @@ Ver [ADR-021](decisiones.md#adr-021-imagen-docker).
 | Salud | `HEALTHCHECK` sobre `/actuator/health`, el único endpoint de actuator expuesto |
 | Contexto | `.dockerignore` en modo lista blanca: solo `.mvn/`, `mvnw`, `pom.xml`, `src/main/` y `docs/api/openapi.yaml` |
 | Pruebas | No se ejecutan en `docker build`: el pipeline las corre antes de construir la imagen |
+
+## Evidencia de ejecución
+
+Script `scripts/verificar-docker.ps1` ejecutado en Windows con Docker Desktop, sobre el commit `50cbd0c` (2026-10-19):
+
+| Verificación | Resultado | Detalle |
+|---|---|---|
+| `docker build -t challenge-api .` | OK | exit 0 |
+| `docker run -p 8080:8080 challenge-api` | OK | exit 0 |
+| HEALTHCHECK del contenedor | OK | estado: healthy |
+| `GET /actuator/health` | OK | status: UP |
+| Contenedor sin usuario root | OK | uid: 10001 |
+| `POST /orders` | OK | HTTP 201, total 200000 |
+| Log JSON con `requestId` | OK | requestId en el log: verificacion-docker-1 |
+| Tamaño de la imagen | OK | 480 MB (sin comprimir) |
+| Karate contra el contenedor | OK | scenarios: 30, passed: 30, failed: 0 |
+
+**Posible mejora:** la imagen pesa 480 MB sin comprimir. La mayor parte es la base JRE de Ubuntu (unos 270 MB). Una base Alpine la reduciría, pero se descartó por compatibilidad (ADR-021). El enunciado no pone límite de tamaño.
