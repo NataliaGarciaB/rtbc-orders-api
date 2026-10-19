@@ -1,0 +1,47 @@
+# API de órdenes con Docker Compose (ADR-021).
+#   docker compose up --build -d --wait                         API en http://localhost:8080 (espera a "healthy")
+#   docker compose --profile acceptance run --rm karate         Karate contra el contenedor (no requiere Java local)
+#   docker compose --profile acceptance down                    Detener y eliminar todo
+name: rtbc-orders
+
+services:
+  api:
+    build: .
+    image: challenge-api
+    ports:
+      - "8080:8080"
+    # Mismo criterio que el HEALTHCHECK del Dockerfile; explícito aquí para que el compose sea autoexplicativo
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      start_period: 40s
+      retries: 5
+    # Límite de memoria: la JVM usa hasta el 75 % (MaxRAMPercentage en la imagen)
+    mem_limit: 512m
+
+  # Pruebas de aceptación dentro de un contenedor (riesgo R07): mismo artefacto que se entrega
+  karate:
+    profiles: ["acceptance"]
+    image: eclipse-temurin:17.0.20_8-jdk-noble
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+    command:
+      - sh
+      - ./mvnw
+      - -B
+      - -ntp
+      - verify
+      - -Pacceptance
+      - -DskipUnitTests=true
+      - -Dacceptance.skipAppStart=true
+      - -Dkarate.env=compose
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  # Caché de dependencias de Maven entre ejecuciones de Karate
+  maven-repo:
