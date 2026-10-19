@@ -24,6 +24,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 | [ADR-018](#adr-018-swagger-ui-con-el-contrato-de-diseño) | Swagger UI muestra el contrato de diseño, sin especificación generada | Aceptada |
 | [ADR-019](#adr-019-observabilidad-logs-de-negocio-e-id-de-correlación) | Logs de eventos de negocio e id de correlación `X-Request-Id` | Aceptada |
 | [ADR-020](#adr-020-reglas-estrictas-de-json) | Reglas estrictas de lectura y escritura de JSON | Aceptada |
+| [ADR-021](#adr-021-imagen-docker) | Imagen Docker multi-stage, sin root, con healthcheck y Karate en contenedor | Aceptada |
 
 ---
 
@@ -172,3 +173,16 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
   - escribe `BigDecimal` con escala negativa en notación científica (`1E+5`).
 - **Decisión:** `spring.jackson.deserialization.accept-float-as-int=false` (una cantidad decimal responde 400) y `spring.jackson.write.write-bigdecimal-as-plain=true`. Además, `valorUnitario` admite como máximo 17 enteros y 2 decimales (`@Digits`), para que coincida con la columna `unit_price` (precision 19, scale 2). Sin ese límite, un valor enorme provocaría un 500 en la base de datos.
 - **Consecuencia:** cada regla tiene una prueba que falla si se desactiva.
+
+## ADR-021: Imagen Docker
+- **Contexto:** el reto pide `Dockerfile` y `docker-compose.yml`, y que la aplicación se construya y ejecute con `docker build` y `docker run`. Karate debe validar el mismo artefacto que se entrega (ADR-012, riesgo R07).
+- **Decisión:**
+  - **Multi-stage:** se compila con `eclipse-temurin:17.0.20_8-jdk-noble` y se ejecuta con `eclipse-temurin:17.0.20_8-jre-noble`. Las versiones están fijadas, y la base Ubuntu se eligió por compatibilidad.
+  - **Capas:** el JAR se extrae en capas de Spring Boot (`jarmode=tools extract --layers --launcher`), así una reconstrucción solo cambia la capa de la aplicación.
+  - **Seguridad:** la imagen corre con el usuario `10001:10001`, sin privilegios. El `.dockerignore` funciona como lista blanca (solo entra lo que la compilación necesita) y la imagen no contiene secretos.
+  - **Sin pruebas en `docker build`:** el pipeline las ejecuta antes de construir la imagen, y repetirlas costaría unos 2 minutos por build.
+  - **Salud:** se expone solo `/actuator/health`, sin detalles ni índice de endpoints, para el `HEALTHCHECK` y para que el pipeline sepa cuándo el contenedor está listo.
+  - **Perfil `docker`:** logs JSON (ECS) con `requestId` como campo propio, para que una herramienta de logs los procese.
+  - **JVM:** `-XX:MaxRAMPercentage=75` y `-XX:+ExitOnOutOfMemoryError`. En compose, el límite es de 512 MB.
+  - **Karate en un contenedor del compose** (perfil `acceptance`): basta con Docker para correr las pruebas de aceptación contra la imagen.
+- **Consecuencia:** cualquier persona con Docker puede construir, ejecutar y validar la API sin instalar Java. El script `scripts/verificar-docker.ps1` comprueba todo lo anterior de punta a punta. Detalle de uso en [docker.md](docker.md).

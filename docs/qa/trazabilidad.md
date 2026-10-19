@@ -56,4 +56,6 @@ Conecta cada requisito del reto con su riesgo y con las pruebas que lo cubren. S
 | Observabilidad: id de correlación `X-Request-Id` | R06 | ✅ `operacion.feature` (servidor real). ✅ `RequestIdFilterTest`: generación, reutilización, rechazo de valores inseguros (inyección en el log), presencia en el log, limpieza del MDC | ✅ Fase 3 |
 | Contrato publicado sin desviaciones | R04 | ✅ `ApiDocumentationTest`: `/openapi.yaml` es byte a byte `docs/api/openapi.yaml`; sin especificación generada. Tipo `application/yaml` y Swagger UI: ✅ `operacion.feature` (servidor real) | ✅ Fase 4 |
 | Pruebas de aceptación | R01-R05 | Karate: 30 escenarios en 6 features (4 obligatorios ⭐); prueba de la prueba en [estrategia-pruebas.md](estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate) | ✅ Fase 4 |
-| Artefacto Docker equivalente al local | R07 | Karate contra el contenedor (`-Dkarate.env=docker`) | 📝 Fase 5-6 |
+| Artefacto Docker equivalente al local | R07 | `scripts/verificar-docker.ps1`: comandos del enunciado, contenedor `healthy`, sin root, logs JSON con `requestId` y Karate (30 escenarios) contra el contenedor con `docker compose` | 🟡 Fase 5 (validación manual) · CI en Fase 6 |
+| Endpoint de salud sin detalles | R06 | ✅ `HealthEndpointTest`: `/actuator/health` UP sin componentes; `/actuator`, `env`, `beans`, `info` y `heapdump` → 404 | ✅ Fase 5 |
+| Logs JSON en contenedor | — | ✅ `DockerProfileTest` (configuración) + `verificar-docker.ps1` (JSON con `requestId` real) | 🟡 Fase 5 |
