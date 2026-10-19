@@ -25,6 +25,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 | [ADR-019](#adr-019-observabilidad-logs-de-negocio-e-id-de-correlación) | Logs de eventos de negocio e id de correlación `X-Request-Id` | Aceptada |
 | [ADR-020](#adr-020-reglas-estrictas-de-json) | Reglas estrictas de lectura y escritura de JSON | Aceptada |
 | [ADR-021](#adr-021-imagen-docker) | Imagen Docker multi-stage, sin root, con healthcheck y Karate en contenedor | Aceptada |
+| [ADR-022](#adr-022-pipeline-de-ci-y-quality-gates) | Pipeline de CI con jobs paralelos, quality gates y publicación en GHCR | Aceptada |
 
 ---
 
@@ -186,3 +187,20 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
   - **JVM:** `-XX:MaxRAMPercentage=75` y `-XX:+ExitOnOutOfMemoryError`. En compose, el límite es de 512 MB.
   - **Karate en un contenedor del compose** (perfil `acceptance`): basta con Docker para correr las pruebas de aceptación contra la imagen.
 - **Consecuencia:** cualquier persona con Docker puede construir, ejecutar y validar la API sin instalar Java. El script `scripts/verificar-docker.ps1` comprueba todo lo anterior de punta a punta. Detalle de uso en [docker.md](docker.md).
+
+## ADR-022: Pipeline de CI y quality gates
+- **Contexto:** el reto pide un pipeline con checkout, build, pruebas unitarias, cobertura, mutation testing, Karate e imagen Docker, que falle si la cobertura baja de 80 %, el mutation score baja de 70 % o alguna prueba falla. SonarCloud es opcional.
+- **Decisión:** GitHub Actions con cinco jobs:
+
+  | Job | Qué hace | Falla si |
+  |---|---|---|
+  | `build` | `./mvnw verify` y luego las mismas pruebas en orden inverso | Alguna prueba falla, la cobertura es menor que 80 % o hay dependencias de orden entre pruebas |
+  | `mutation` | PIT con mutadores STRONGER sobre `domain` y `application` | El mutation score es menor que 70 % |
+  | `acceptance` | Construye la imagen, la levanta con `docker compose up --wait` y ejecuta Karate contra el contenedor (ADR-012) | Algún escenario falla o el contenedor no llega a `healthy` |
+  | `sonar` | Análisis de SonarCloud con la cobertura de JaCoCo | El quality gate de SonarCloud falla |
+  | `publish` | Publica la imagen en `ghcr.io/nataliagarciab/rtbc-orders-api`, con etiquetas `sha`, `latest` y versión semántica | — (solo corre en push a `main` y en tags `v*`, si los otros cuatro pasaron) |
+
+  - `mutation`, `acceptance` y `sonar` corren en paralelo después de `build`.
+  - Cada job publica sus reportes como artifacts (JaCoCo, Surefire, PIT, Karate y los logs del contenedor) y un resumen con las métricas en la ejecución.
+  - Los permisos son mínimos (`contents: read`). Solo `publish` tiene `packages: write`, y `sonar` no corre en PR desde forks, porque no reciben secretos.
+- **Consecuencia:** `build`, `mutation`, `acceptance` y `sonar` son checks obligatorios en el ruleset de `main`. Ningún cambio llega a `main` sin pasar los quality gates, y la imagen publicada es la misma que validó Karate. La Fase 8b consume esa imagen desde GHCR.
