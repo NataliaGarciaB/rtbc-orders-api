@@ -1,0 +1,9 @@
+# Lista blanca: al contexto de construcción solo entra lo que la compilación necesita.
+# Menos contexto = builds más rápidos y sin filtrar archivos locales (target/, .git, IDE, secretos).
+*
+!.mvn/
+!mvnw
+!pom.xml
+!src/main/
+# El build copia el contrato a la aplicación (ADR-018): no se puede excluir
+!docs/api/openapi.yaml
