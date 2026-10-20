@@ -13,7 +13,7 @@ API REST para gestionar órdenes de compra: creación, consulta y ciclo de vida 
 | **Stack** | Java 17 · Spring Boot 4.1 · Spring Data JPA · H2 · Maven Wrapper |
 | **Pruebas** | JUnit 6 · Mockito · AssertJ · ArchUnit · JaCoCo · PIT · Karate |
 | **Entrega** | Docker · GitHub Actions · SonarCloud · GitHub Container Registry |
-| **Calidad actual** | 148 pruebas JUnit · 30 escenarios de aceptación · cobertura 100 % de líneas y ramas · mutation score 100 % |
+| **Calidad actual** | 153 pruebas JUnit · 30 escenarios de aceptación · cobertura 100 % de líneas y ramas · mutation score 100 % |
 
 ## Contenido
 
@@ -236,11 +236,11 @@ Reportes generados:
 
 ## Evidencias
 
-Las cifras corresponden a la [ejecución del pipeline en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865). Cada ejecución publica los reportes completos como artifacts y un resumen de métricas.
+Las cifras corresponden al estado actual de `main` ([ejecuciones del pipeline](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml?query=branch%3Amain)). Cada ejecución publica los reportes completos como artifacts y un resumen de métricas.
 
 ### Evidencia de cobertura
 
-**100 % de líneas (249/249) y 100 % de ramas (57/57)** con JaCoCo; el umbral mínimo del pipeline es 80 %.
+**100 % de líneas (250/250) y 100 % de ramas (57/57)** con JaCoCo; el umbral mínimo del pipeline es 80 %.
 
 - Reporte: artifact `cobertura-jacoco` de cada ejecución; en local, `target/site/jacoco/index.html`.
 - Solo se excluye la clase de arranque de Spring Boot, que no tiene lógica ([ADR-013](docs/decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación)).
@@ -254,7 +254,7 @@ Las cifras corresponden a la [ejecución del pipeline en `main`](https://github.
 
 ### Evidencia del pipeline
 
-[Ejecución completa en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865) con los cinco jobs en verde. Historial: [GitHub Actions](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml).
+[Ejecuciones en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml?query=branch%3Amain), con los cinco jobs en verde. Historial: [GitHub Actions](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml).
 
 #### Quality gates
 
@@ -336,7 +336,7 @@ Cada comportamiento se prueba en el nivel más bajo posible; los niveles superio
 | Integración de persistencia | `@DataJpaTest` (H2) | 6 pruebas |
 | Arquitectura | ArchUnit | 2 reglas |
 | Unitarias de casos de uso | JUnit + Mockito | 16 pruebas |
-| Unitarias de dominio | JUnit | 69 pruebas |
+| Unitarias de dominio | JUnit | 74 pruebas |
 
 Técnicas de diseño: transición de estados (matriz completa), valores límite, particiones de equivalencia y tablas de decisión.
 
