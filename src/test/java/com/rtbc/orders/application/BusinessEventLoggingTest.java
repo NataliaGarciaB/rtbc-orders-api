@@ -40,7 +40,7 @@ class BusinessEventLoggingTest {
 
 		assertThat(output.getOut())
 				.contains("INFO")
-				.contains("Orden creada: id=" + order.id() + " total=200000 productos=1")
+				.contains("Orden creada: id=" + order.id() + " total=200000.00 productos=1")
 				.doesNotContain(CUSTOMER);
 	}
 
