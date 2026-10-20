@@ -272,77 +272,31 @@ Reportes generados:
 
 ## Evidencias
 
-### Cobertura
+Todas las cifras corresponden a la [ejecución del pipeline en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865). Cada ejecución publica los reportes completos como artifacts y un resumen de métricas.
 
-**100 % de líneas (249/249) y 100 % de ramas (57/57).** Solo se excluye la clase de arranque de Spring Boot, que no tiene lógica ([ADR-013](docs/decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación)).
+| Evidencia | Resultado | Reporte |
+|---|---|---|
+| Cobertura (JaCoCo) | **100 % de líneas (249/249) y de ramas (57/57)** | Artifact `cobertura-jacoco` · local: `target/site/jacoco/index.html` |
+| Mutation testing (PIT, mutadores STRONGER) | **66 de 66 mutantes eliminados (100 %)** | Artifact `mutacion-pit` · local: `target/pit-reports/index.html` |
+| Aceptación (Karate contra el contenedor) | **30 de 30 escenarios** en 6 features | Artifact `aceptacion-karate` · local: `target/karate-reports/karate-summary.html` |
+| Análisis estático (SonarCloud) | **Quality gate en verde**, calificación A en seguridad, confiabilidad y mantenibilidad | [Proyecto en SonarCloud](https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api) |
+| Imagen Docker | Construcción, ejecución, contenedor `healthy`, usuario sin privilegios, logs JSON y Karate: 9 de 9 verificaciones | [docs/docker.md](docs/docker.md#evidencia-de-ejecución) |
 
-![Reporte de cobertura de JaCoCo](docs/evidencias/cobertura-jacoco.png)
-
-### Mutation testing
-
-**66 de 66 mutantes eliminados (100 %)** con los mutadores STRONGER de PIT sobre `domain` y `application`.
-
-![Reporte de mutación de PIT](docs/evidencias/mutacion-pit.png)
-
-### Pruebas de aceptación
-
-**30 escenarios en 6 features**, ejecutados en paralelo contra el contenedor. Para comprobar que las pruebas detectan errores, se introdujeron temporalmente defectos en las reglas cubiertas por los escenarios principales: todos fueron detectados ([detalle](docs/qa/estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate)).
-
-![Reporte de Karate](docs/evidencias/aceptacion-karate.png)
-
-### Pipeline
-
-Ejecución completa en `main`, con el resumen de métricas que publica cada job:
-
-![Pipeline en verde](docs/evidencias/pipeline-verde.png)
-
-Historial de ejecuciones: [GitHub Actions](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml).
+La cobertura solo excluye la clase de arranque de Spring Boot, que no tiene lógica ([ADR-013](docs/decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación)). Para comprobar que las pruebas de aceptación detectan errores, se introdujeron temporalmente defectos en las reglas que cubren los escenarios críticos, y todos fueron detectados ([detalle](docs/qa/estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate)).
 
 ### El pipeline bloquea cambios que no cumplen los quality gates
 
 El [PR #9](https://github.com/NataliaGarciaB/rtbc-orders-api/pull/9) introdujo a propósito tres problemas, uno por ejecución, y se cerró sin merge:
 
-| Etapa | Cambio | Resultado |
-|---|---|---|
-| 1 | Se rompe RN-05 | ❌ `build`: 4 pruebas fallan |
-| 2 | Código nuevo sin pruebas | ❌ `build`: las pruebas pasan, pero la cobertura de ramas baja a 72 % |
-| 3 | Una prueba que ejecuta el código sin verificar nada | ✅ `build` (100 % de líneas) y ✅ `sonar` · ❌ `mutation`: 66 % |
+| Etapa | Cambio | Resultado | Ejecución |
+|---|---|---|---|
+| 1 | Se rompe RN-05 | ❌ `build`: 4 pruebas fallan | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39338585896) |
+| 2 | Código nuevo sin pruebas | ❌ `build`: las pruebas pasan, pero la cobertura de ramas baja a 72 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39339430837) |
+| 3 | Una prueba que ejecuta el código sin verificar nada | ✅ `build` (100 % de líneas) y ✅ `sonar` · ❌ `mutation`: 66 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39340382138) |
 
 La etapa 3 muestra por qué el mutation testing es un gate: la cobertura y el análisis estático dieron el cambio por bueno porque el código se ejecuta, pero solo PIT detectó que la prueba no verifica ningún resultado.
 
-<details>
-<summary>Capturas de las tres etapas</summary>
-
-**Etapa 1: pruebas fallidas**
-
-![Etapa 1: checks del PR](docs/evidencias/demo-1-pruebas-fallidas-pr.png)
-![Etapa 1: log del job build](docs/evidencias/demo-1-pruebas-fallidas-log.png)
-
-**Etapa 2: cobertura menor que 80 %**
-
-![Etapa 2: resumen de cobertura](docs/evidencias/demo-2-cobertura-resumen.png)
-![Etapa 2: log del job build](docs/evidencias/demo-2-cobertura-log.png)
-
-**Etapa 3: mutation score menor que 70 %**
-
-![Etapa 3: jobs de la ejecución](docs/evidencias/demo-3-mutacion-grafo.png)
-![Etapa 3: resumen de cobertura y mutación](docs/evidencias/demo-3-mutacion-resumen.png)
-![Etapa 3: log del job mutation](docs/evidencias/demo-3-mutacion-log.png)
-![Etapa 3: quality gate de SonarCloud en verde](docs/evidencias/demo-3-sonar.png)
-
-</details>
-
-### Análisis estático
-
-Quality gate de SonarCloud en verde, con calificación A en seguridad, confiabilidad y mantenibilidad: [ver proyecto](https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api).
-
-![SonarCloud](docs/evidencias/sonarcloud.png)
-
 En el primer análisis, SonarCloud detectó que las actions del pipeline estaban referenciadas por etiqueta (`@v7`) y no por SHA, un riesgo de cadena de suministro. Se corrigió fijando todas por SHA de commit.
-
-### Imagen Docker
-
-Verificación de la imagen con `scripts/verificar-docker.ps1`: construcción, ejecución, contenedor `healthy`, usuario sin privilegios, logs JSON con id de correlación y Karate contra el contenedor ([resultado](docs/docker.md#evidencia-de-ejecución)).
 
 ---
 
@@ -370,20 +324,21 @@ Verificación de la imagen con `scripts/verificar-docker.ps1`: construcción, ej
 
 ## Uso de IA
 
-El proyecto se desarrolló con **Claude Code** (Anthropic) como asistente de programación, con criterios explícitos para que su uso fuera responsable y verificable:
+Usé **Claude Code** (Anthropic) como potenciador de mi trabajo de ingeniería: me permitió acelerar la implementación y dedicar más tiempo a lo que define la calidad de una solución, que es el diseño, el análisis de riesgo y la verificación, sin delegar el criterio.
 
-- **La dirección fue humana.** La estrategia, el alcance de cada fase y cada decisión técnica se acordaron antes de escribir código. El asistente proponía opciones con su recomendación y la autora decidía.
-- **Nada se publicó sin revisión.** Cada fase se revisó localmente antes de hacer push. La prueba exploratoria de la API y la validación de la imagen Docker se ejecutaron de forma manual.
-- **El trabajo se verificó, no se asumió:**
-  - TDD con commits en rojo y en verde visibles en el historial.
-  - Cada commit de una fase se compiló y probó por separado.
-  - Defectos introducidos a propósito para comprobar que las pruebas los detectan.
-  - Mutation testing para medir si las pruebas realmente verifican resultados.
-- **Los errores se corrigieron con evidencia.** Algunos ejemplos detectados durante el desarrollo:
-  - una dependencia entre pruebas que solo aparecía en el orden de ejecución de Linux (CI);
-  - Jackson 3 truncando cantidades decimales sin avisar;
-  - actions del pipeline sin fijar por SHA.
-- **Sin datos sensibles.** El token de SonarCloud solo existe como secreto de GitHub, y los logs no registran datos personales.
+| Lo que aporté | Cómo me apoyó la IA |
+|---|---|
+| La estrategia de pruebas basada en riesgo, el alcance de cada fase y las decisiones técnicas | Proponer alternativas con sus ventajas y desventajas para decidir con más información |
+| El diseño de la arquitectura, del contrato de la API y de la máquina de estados | Implementar con TDD a partir de ese diseño y documentar cada decisión |
+| La revisión de cada cambio antes de integrarlo, la prueba exploratoria y la validación de la imagen en Docker | Automatizar verificaciones repetitivas, como probar cada commit por separado o inyectar defectos para comprobar que las pruebas los detectan |
+| El criterio para aceptar, ajustar o descartar cada propuesta | Investigar compatibilidad de versiones, configuraciones y comportamientos de las herramientas |
+
+Prácticas para un uso responsable:
+
+- **Nada se integró sin revisión.** Cada fase se revisó localmente antes de publicarse, y ningún cambio llega a `main` sin pasar los quality gates.
+- **Verificación antes que confianza.** TDD con commits en rojo y en verde visibles en el historial, mutation testing y defectos inyectados a propósito para comprobar que las pruebas los detectan.
+- **Las propuestas también se pusieron a prueba.** Así aparecieron hallazgos como una dependencia entre pruebas que solo se manifestaba en el CI (Linux), Jackson 3 truncando cantidades decimales sin avisar y actions del pipeline sin fijar por SHA. Todos se corrigieron con su prueba o su control correspondiente.
+- **Sin datos sensibles.** Los tokens existen solo como secretos de GitHub y los logs no registran datos personales.
 
 ---
 
@@ -402,8 +357,7 @@ El proyecto se desarrolló con **Claude Code** (Anthropic) como asistente de pro
 │   ├── decisiones.md      Registro de decisiones (ADR)
 │   ├── maquina-estados.md Transiciones y códigos HTTP
 │   ├── docker.md          Ejecución con Docker y evidencia
-│   ├── qa/                Estrategia de pruebas y trazabilidad
-│   └── evidencias/        Capturas de reportes y del pipeline
+│   └── qa/                Estrategia de pruebas y trazabilidad
 ├── scripts/verificar-docker.ps1
 ├── Dockerfile · docker-compose.yml · .dockerignore
 └── .github/workflows/ci.yml
