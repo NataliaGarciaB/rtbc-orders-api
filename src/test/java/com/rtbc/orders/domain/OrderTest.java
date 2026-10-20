@@ -90,7 +90,7 @@ class OrderTest {
 	class Total {
 
 		@Test
-		@DisplayName("una línea: 2 × 100000 = 200000 (ejemplo del enunciado)")
+		@DisplayName("una línea: 2 × 100000 = 200000 (ejemplo de referencia)")
 		void unaLinea() {
 			Order order = Order.create(CUSTOMER, List.of(line("P001", 2, "100000")));
 

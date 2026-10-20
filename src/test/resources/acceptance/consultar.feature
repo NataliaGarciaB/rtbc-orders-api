@@ -5,7 +5,7 @@ Feature: Consultar órdenes (GET /orders/{id})
     * url baseUrl
     * def schemas = call read('classpath:acceptance/data/schemas.js')
 
-  @obligatorio
+  @critico
   Scenario: Consultar una orden existente
     Given def existente = call read('classpath:acceptance/helpers/crear-orden.feature')
     And path 'orders', existente.orderId

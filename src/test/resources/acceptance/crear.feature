@@ -5,7 +5,7 @@ Feature: Crear orden (POST /orders)
     * url baseUrl
     * def schemas = call read('classpath:acceptance/data/schemas.js')
 
-  @obligatorio
+  @critico
   Scenario: Crear una orden válida
     Given path 'orders'
     And request read('classpath:acceptance/data/orden-valida.json')

@@ -2,7 +2,7 @@
 
 Requisitos: Docker en ejecución. No hace falta Java para construir, ejecutar ni probar la imagen.
 
-## Comandos del enunciado
+## Construir y ejecutar
 
 ```bash
 docker build -t challenge-api .
@@ -36,7 +36,7 @@ Si tienes Java 17 instalado, también puedes correr Karate desde tu máquina con
 powershell -ExecutionPolicy Bypass -File .\scripts\verificar-docker.ps1
 ```
 
-El script ejecuta los comandos del enunciado y verifica:
+El script ejecuta `docker build` y `docker run`, y verifica:
 - que el contenedor quede `healthy`;
 - que `/actuator/health` responda;
 - que el contenedor no corra como root;
@@ -78,4 +78,4 @@ Script `scripts/verificar-docker.ps1` ejecutado en Windows con Docker Desktop, s
 | Tamaño de la imagen | OK | 480 MB (sin comprimir) |
 | Karate contra el contenedor | OK | scenarios: 30, passed: 30, failed: 0 |
 
-**Posible mejora:** la imagen pesa 480 MB sin comprimir. La mayor parte es la base JRE de Ubuntu (unos 270 MB). Una base Alpine la reduciría, pero se descartó por compatibilidad (ADR-021). El enunciado no pone límite de tamaño.
+**Posible mejora:** la imagen pesa 480 MB sin comprimir. La mayor parte es la base JRE de Ubuntu (unos 270 MB). Una base Alpine la reduciría, pero se descartó por compatibilidad (ADR-021). No hay un límite de tamaño definido para esta imagen.

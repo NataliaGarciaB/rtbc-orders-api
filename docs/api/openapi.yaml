@@ -9,7 +9,7 @@ info:
     API REST para la gestión de órdenes de compra.
     Contrato de diseño (Fase 0): la implementación debe cumplirlo.
     Reglas de negocio RN-01..RN-06 y decisiones en docs/decisiones.md.
-    Sin autenticación: fuera del alcance del reto (declarado explícitamente con `security: []`).
+    Sin autenticación: fuera del alcance de esta versión (declarado explícitamente con `security: []`).
 servers:
   - url: http://localhost:8080
     description: Local / Docker
