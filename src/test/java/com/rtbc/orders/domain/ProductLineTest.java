@@ -4,12 +4,14 @@ import static com.rtbc.orders.domain.OrderFixtures.line;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -67,6 +69,13 @@ class ProductLineTest {
 	@Tag("validaciones")
 	@DisplayName("ADR-008: valor unitario mayor que cero, máximo 2 decimales")
 	class ValorUnitario {
+
+		@ParameterizedTest(name = "{0} se normaliza a {1}")
+		@CsvSource({ "100000, 100000.00", "35000.5, 35000.50", "10.500, 10.50", "1E+5, 100000.00" })
+		@DisplayName("normaliza el valor unitario a 2 decimales para que el contrato sea consistente")
+		void normalizaADosDecimales(String recibido, String esperado) {
+			assertThat(line("P001", 1, recibido).unitPrice()).isEqualTo(new BigDecimal(esperado));
+		}
 
 		@Test
 		@DisplayName("rechaza valor unitario ausente")

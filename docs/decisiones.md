@@ -30,7 +30,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 ---
 
 ## ADR-001: Stack tecnológico
-- **Contexto:** el reto permite Java, Python o JavaScript/TypeScript.
+- **Contexto:** se evaluaron Java, Python y JavaScript/TypeScript como plataforma.
 - **Decisión:** Java 17, Spring Boot 3, Maven Wrapper, JUnit 5, Mockito, JaCoCo, PIT y Karate.
 - **Consecuencia:** JaCoCo y PIT se integran con Maven y permiten fallar el build por umbral sin herramientas externas. Karate es nativo de la JVM, así que corre con el mismo build. Maven Wrapper fija la versión de Maven en local, CI y Docker.
 
@@ -46,9 +46,9 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Consecuencia:** el dominio se prueba con JUnit puro, en milisegundos y con alto mutation score. Cambiar H2 por otro motor solo toca `infrastructure`.
 
 ## ADR-003: Persistencia en H2
-- **Contexto:** el reto pide ejecución local y en Docker sin dependencias externas.
+- **Contexto:** la API debe ejecutarse localmente y en Docker sin dependencias externas.
 - **Decisión:** se usa H2 en memoria vía Spring Data JPA, detrás de un puerto `OrderRepository`.
-- **Consecuencia:** cero configuración para quien evalúa. Los datos se pierden al reiniciar, lo cual es aceptable para el alcance del reto. El adaptador se prueba con `@DataJpaTest`.
+- **Consecuencia:** cero configuración para quien la ejecuta. Los datos se pierden al reiniciar, lo cual es aceptable para el alcance del proyecto. El adaptador se prueba con `@DataJpaTest`.
 
 ## ADR-004: Máquina de estados en el dominio
 - **Contexto:** RN-04, RN-05 y RN-06 son reglas de transición. Si se dispersan en `if` dentro de controladores o servicios, se duplican y se escapan casos.
@@ -60,7 +60,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Consecuencia:** la matriz completa de 25 combinaciones se prueba con una sola prueba parametrizada (RN-06).
 
 ## ADR-005: Códigos HTTP
-- **Contexto:** el PDF fija 400 para enviar una orden no pagada y 409 para cancelar una orden entregada. Hay que extender el criterio al resto de casos de forma coherente.
+- **Contexto:** las reglas de negocio definen 400 para enviar una orden no pagada (RN-05) y 409 para cancelar una orden entregada (RN-04). Hay que extender el criterio al resto de casos de forma coherente.
 - **Decisión:**
 
   | Situación | Código |
@@ -70,27 +70,27 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
   | Orden inexistente | 404 |
   | Cualquier otra transición inválida, incluida cancelar `ENTREGADA` (RN-04), cancelar `CANCELADA` y pasar al mismo estado | 409 |
 
-- **Consecuencia:** la regla para el cliente es simple. 400 significa que la petición no cumple una precondición de negocio o de formato. 409 significa que la petición entra en conflicto con el estado actual del recurso. RN-05 se trata como precondición (falta el pago), por eso devuelve 400 como pide el PDF.
+- **Consecuencia:** la regla para el cliente es simple. 400 significa que la petición no cumple una precondición de negocio o de formato. 409 significa que la petición entra en conflicto con el estado actual del recurso. RN-05 se trata como precondición (falta el pago), por eso devuelve 400.
 
 ## ADR-006: DELETE como cancelación lógica
-- **Contexto:** el PDF nombra `DELETE /orders/{id}` como "Cancelar orden".
+- **Contexto:** la operación `DELETE /orders/{id}` se define como "Cancelar orden".
 - **Decisión:** `DELETE` no borra el registro. Cambia el estado a `CANCELADA` usando el mismo caso de uso que `PATCH` con `{"estado": "CANCELADA"}` (DRY) y responde **200** con la orden actualizada.
 - **Consecuencia:** se conserva el historial y la orden sigue consultable. Responder 200 con body, en lugar de 204, permite verificar el estado resultante en Karate y en E2E sin una segunda llamada.
 
 ## ADR-007: Total calculado en el servidor con BigDecimal
 - **Contexto:** RN-03 pide calcular el total automáticamente. Usar `double` produce errores de redondeo en valores monetarios.
 - **Decisión:** `total = Σ cantidad × valorUnitario`, calculado en el dominio con `BigDecimal`. Si el request trae `total` o `estado`, se ignoran: la orden siempre nace en `CREADA` con el total calculado.
-- **Consecuencia:** el cliente no puede manipular el total. Las pruebas verifican que un `total` enviado a propósito con valor incorrecto sea ignorado.
+- **Consecuencia:** el cliente no puede manipular el total. Las pruebas verifican que un `total` enviado a propósito con valor incorrecto sea ignorado. Los montos se normalizan a 2 decimales en el dominio, así la API responde el mismo formato al crear y al consultar (`100000.00`), aunque el cliente envíe `100000` o `1E+5`.
 
 ## ADR-008: Validaciones de entrada
-- **Contexto:** el PDF exige RN-01 (al menos un producto) y RN-02 (cantidad mayor que cero). Hay otros datos que, si llegan inválidos, corrompen el total o la orden.
+- **Contexto:** RN-01 (al menos un producto) y RN-02 (cantidad mayor que cero) no cubren todos los datos de entrada. Hay otros datos que, si llegan inválidos, corrompen el total o la orden.
 - **Decisión:** además de RN-01 y RN-02, se exige:
   - `cliente` obligatorio y no vacío, máximo 120 caracteres.
   - `productos[].id` obligatorio y no vacío, máximo 50 caracteres.
   - `productos[].valorUnitario` mayor que 0, con máximo 2 decimales.
   - `productos[].cantidad` entero.
 
-  Se permiten productos con el mismo `id` en una orden: se tratan como líneas independientes (YAGNI, el reto no define consolidación).
+  Se permiten productos con el mismo `id` en una orden: se tratan como líneas independientes (YAGNI: ninguna regla de negocio define consolidación).
 - **Consecuencia:** se evitan totales en cero o negativos y entradas sin límite de tamaño, que son un riesgo de seguridad. Cada validación tiene pruebas de límite.
 
 ## ADR-009: Formato de error único (RFC 9457)
@@ -103,12 +103,12 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Consecuencia:** las pruebas verifican `codigo` en lugar de mensajes de texto, que son frágiles. No se exponen stack traces ni detalles internos.
 
 ## ADR-010: GET /orders sin paginación
-- **Contexto:** el PDF no pide paginación ni filtros.
+- **Contexto:** ningún caso de uso actual necesita paginación ni filtros.
 - **Decisión:** `GET /orders` devuelve la lista completa (YAGNI).
 - **Consecuencia:** se acepta como deuda técnica explícita. Si el volumen creciera, se agregaría paginación sin romper el contrato, envolviendo la lista en un objeto con versión nueva del endpoint.
 
 ## ADR-011: Estrategia de pruebas y quality gates
-- **Contexto:** el reto valora la estrategia basada en riesgo y la pirámide de pruebas.
+- **Contexto:** las pruebas deben dar más confianza donde un fallo hace más daño, con retroalimentación rápida.
 - **Decisión:** se aplica una pirámide con más pruebas abajo (dominio) y pocas arriba (Karate y E2E). Los quality gates son:
   - Cobertura de líneas y de ramas mayor o igual a 80% (JaCoCo).
   - Mutation score mayor o igual a 70% (PIT).
@@ -157,7 +157,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
   - `/openapi.yaml` se sirve como `application/yaml` en el servidor real (`server.mime-mappings`). MockMvc no aplica esa configuración, así que el tipo se verifica en Karate, contra el servidor real.
 
 ## ADR-019: Observabilidad: logs de negocio e id de correlación
-- **Contexto:** el reto valora la observabilidad. Hace falta poder explicar qué le pasó a una orden y seguir una petición en los logs.
+- **Contexto:** hace falta poder explicar qué le pasó a una orden y seguir una petición en los logs.
 - **Decisión:**
   - Los casos de uso registran en formato `clave=valor`:
     - `Orden creada` y `Estado cambiado`, en nivel INFO.
@@ -176,7 +176,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Consecuencia:** cada regla tiene una prueba que falla si se desactiva.
 
 ## ADR-021: Imagen Docker
-- **Contexto:** el reto pide `Dockerfile` y `docker-compose.yml`, y que la aplicación se construya y ejecute con `docker build` y `docker run`. Karate debe validar el mismo artefacto que se entrega (ADR-012, riesgo R07).
+- **Contexto:** la aplicación debe construirse y ejecutarse con `docker build` y `docker run`, y levantarse con `docker compose`. Karate debe validar el mismo artefacto que se entrega (ADR-012, riesgo R07).
 - **Decisión:**
   - **Multi-stage:** se compila con `eclipse-temurin:17.0.20_8-jdk-noble` y se ejecuta con `eclipse-temurin:17.0.20_8-jre-noble`. Las versiones están fijadas, y la base Ubuntu se eligió por compatibilidad.
   - **Capas:** el JAR se extrae en capas de Spring Boot (`jarmode=tools extract --layers --launcher`), así una reconstrucción solo cambia la capa de la aplicación.
@@ -189,7 +189,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 - **Consecuencia:** cualquier persona con Docker puede construir, ejecutar y validar la API sin instalar Java. El script `scripts/verificar-docker.ps1` comprueba todo lo anterior de punta a punta. Detalle de uso en [docker.md](docker.md).
 
 ## ADR-022: Pipeline de CI y quality gates
-- **Contexto:** el reto pide un pipeline con checkout, build, pruebas unitarias, cobertura, mutation testing, Karate e imagen Docker, que falle si la cobertura baja de 80 %, el mutation score baja de 70 % o alguna prueba falla. SonarCloud es opcional.
+- **Contexto:** ningún cambio debe llegar a `main` sin pasar por build, pruebas unitarias, cobertura, mutation testing, Karate e imagen Docker. El pipeline debe fallar si la cobertura baja de 80 %, el mutation score baja de 70 % o alguna prueba falla.
 - **Decisión:** GitHub Actions con cinco jobs:
 
   | Job | Qué hace | Falla si |

@@ -25,6 +25,9 @@ public record ProductLine(String productId, int quantity, BigDecimal unitPrice) 
 			throw new ValidationException("productos.valorUnitario",
 					"el valor unitario admite máximo " + UNIT_PRICE_MAX_DECIMALS + " decimales");
 		}
+		// Escala fija: el contrato expone siempre los montos con 2 decimales (100000.00), sin importar cómo llegaron.
+		// La validación anterior garantiza que esto nunca redondea.
+		unitPrice = unitPrice.setScale(UNIT_PRICE_MAX_DECIMALS);
 	}
 
 	public BigDecimal subtotal() {

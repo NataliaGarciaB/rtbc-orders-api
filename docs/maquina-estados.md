@@ -42,7 +42,7 @@ Se llega a cada celda con `PATCH /orders/{id}/status` y body `{"estado": "<desti
 ## Decisiones de borde
 | Caso | Respuesta | Motivo |
 |---|---|---|
-| `CREADA → ENVIADA` | 400 `ORDEN_NO_PAGADA` | El PDF lo fija así. Falta una precondición: el pago. |
+| `CREADA → ENVIADA` | 400 `ORDEN_NO_PAGADA` | RN-05: falta una precondición, el pago. |
 | `CANCELADA → ENVIADA` | 409 `TRANSICION_INVALIDA` | La orden está en un estado final. El conflicto es con ese estado, no con el pago. |
 | `CREADA → ENTREGADA` | 409 `TRANSICION_INVALIDA` | Salta estados. RN-05 se refiere solo a *enviar*. |
 | Mismo estado (`PAGADA → PAGADA`) | 409 `TRANSICION_INVALIDA` | No es una transición. Rechazarla evita falsos éxitos. |

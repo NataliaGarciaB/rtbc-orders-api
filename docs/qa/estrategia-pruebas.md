@@ -27,7 +27,7 @@ Dar confianza, con evidencia, de que la API cumple las reglas RN-01 a RN-06 y el
 ```mermaid
 flowchart TB
     E2E["E2E · Playwright (repo aparte)<br/>4 flujos de usuario"]
-    ACC["Aceptación · Karate<br/>4 obligatorios + escenarios por riesgo"]
+    ACC["Aceptación · Karate<br/>4 críticos + escenarios por riesgo"]
     INT["Integración · @WebMvcTest, @DataJpaTest, ArchUnit<br/>contrato HTTP, errores, persistencia"]
     UNIT["Unitarias · JUnit 5 + Mockito<br/>dominio (máquina de estados, validaciones, total) y casos de uso"]
     E2E --> ACC --> INT --> UNIT
@@ -108,27 +108,27 @@ El reporte HTML queda en `target/karate-reports/karate-summary.html`.
 - **Validación de forma:** se valida la estructura del contrato con marcadores (`#uuid`, `#number`) y se evitan valores frágiles.
 - **Sin falsos verdes:** si un filtro de etiquetas no selecciona ningún escenario, el runner falla.
 
-**Escenarios obligatorios del PDF (⭐) y escenarios adicionales justificados por riesgo:**
+**Escenarios críticos (⭐) y escenarios adicionales justificados por riesgo:**
 
 | Feature | Escenario | Código | Justificación |
 |---|---|---|---|
-| `crear` | ⭐ Crear una orden válida | 201 | Obligatorio. Además valida la estructura del contrato y el header `Location` |
-| `consultar` | ⭐ Consultar una orden existente | 200 | Obligatorio |
-| `transiciones` | ⭐ Intentar enviar una orden no pagada | 400 | Obligatorio (RN-05) |
-| `transiciones` | ⭐ Intentar cancelar una orden entregada | 409 | Obligatorio (RN-04). Además verifica que la orden no cambió |
+| `crear` | ⭐ Crear una orden válida | 201 | Flujo principal. Además valida la estructura del contrato y el header `Location` |
+| `consultar` | ⭐ Consultar una orden existente | 200 | Flujo principal |
+| `transiciones` | ⭐ Intentar enviar una orden no pagada | 400 | **R01**, regla de mayor riesgo (RN-05) |
+| `transiciones` | ⭐ Intentar cancelar una orden entregada | 409 | **R01**, regla de mayor riesgo (RN-04). Además verifica que la orden no cambió |
 | `crear` | El total ignora `total` y `estado` enviados | 201 | **R02:** el cliente no puede manipular el total (RN-03) |
 | `crear` | Total de varias líneas con decimales, persistido | 201 / 200 | **R02:** precisión de punta a punta, incluida la base de datos |
 | `transiciones` | Muestra de la matriz: 4 válidas y 4 inválidas | 200 / 409 | **R01**, el riesgo más alto (RN-06). Las 25 combinaciones ya están completas en las pruebas unitarias; aquí basta una muestra por tipo de transición |
 | `transiciones` | Flujo completo hasta `ENTREGADA` | 200 | **R01:** el camino feliz completo en el sistema integrado |
 | `validaciones` | Sin productos, cantidad 0, cliente vacío, valor 0, 3 decimales, estado desconocido, id no UUID | 400 | **R03 y R05:** las validaciones funcionan en el artefacto real. Los valores límite completos están en las pruebas unitarias y de integración |
 | `consultar` | Orden inexistente | 404 | **R05:** un id inexistente no provoca un 500 |
-| `consultar` | Listar incluye la orden creada | 200 | Cubre el endpoint `GET /orders` del PDF |
+| `consultar` | Listar incluye la orden creada | 200 | Cubre el endpoint `GET /orders` |
 | `cancelar` | Cancelación lógica: la orden sigue consultable | 200 | ADR-006: el DELETE no borra |
 | `cancelar` | Cancelar una orden ya cancelada | 409 | **R01:** `CANCELADA` es un estado final |
 | `operacion` | `/openapi.yaml` se sirve como `application/yaml` y Swagger UI está disponible | 200 | **R04 y ADR-018:** MockMvc no puede verificar el tipo; el servidor real sí |
 | `operacion` | `X-Request-Id` generado, reutilizado o reemplazado si es inseguro | 200 | ADR-019: observabilidad y prevención de inyección en el log |
 
-**Prueba de la prueba:** se introdujo temporalmente un defecto por cada escenario obligatorio y otro en la configuración del contrato. En todos los casos el escenario falló por el motivo esperado; después se restauró el código.
+**Prueba de la prueba:** se introdujo temporalmente un defecto por cada escenario crítico y otro en la configuración del contrato. En todos los casos el escenario falló por el motivo esperado; después se restauró el código.
 
 | Defecto inyectado | Escenario | Resultado |
 |---|---|---|

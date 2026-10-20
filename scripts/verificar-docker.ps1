@@ -3,8 +3,8 @@
     Verifica la imagen Docker de la API de punta a punta (Fase 5, riesgo R07).
 
 .DESCRIPTION
-    1. docker build -t challenge-api .            (comando del enunciado)
-    2. docker run -p 8080:8080 challenge-api      (comando del enunciado)
+    1. docker build -t challenge-api .            (comando de referencia)
+    2. docker run -p 8080:8080 challenge-api      (comando de referencia)
     3. HEALTHCHECK del contenedor en "healthy"
     4. GET /actuator/health responde UP
     5. El contenedor no corre como root
