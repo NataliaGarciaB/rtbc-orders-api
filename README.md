@@ -16,8 +16,12 @@ API REST para gestionar órdenes de compra: creación, consulta y ciclo de vida 
 | **Calidad actual** | 148 pruebas JUnit · 30 escenarios de aceptación · cobertura 100 % de líneas y ramas · mutation score 100 % |
 
 ## Contenido
-- [Qué hace](#qué-hace)
+- [Descripción](#descripción)
+- [Tecnologías](#tecnologías)
+- [Requisitos previos](#requisitos-previos)
 - [Inicio rápido](#inicio-rápido)
+- [Uso de la API](#uso-de-la-api)
+- [Configuración](#configuración)
 - [Arquitectura](#arquitectura)
 - [Decisiones técnicas](#decisiones-técnicas)
 - [Estrategia de calidad](#estrategia-de-calidad)
@@ -26,33 +30,50 @@ API REST para gestionar órdenes de compra: creación, consulta y ciclo de vida 
 - [Observabilidad](#observabilidad)
 - [Versionamiento](#versionamiento)
 - [Uso de IA](#uso-de-ia)
+- [Limitaciones conocidas y próximos pasos](#limitaciones-conocidas-y-próximos-pasos)
+- [Solución de problemas](#solución-de-problemas)
+- [Documentación](#documentación)
 - [Estructura del repositorio](#estructura-del-repositorio)
+- [Contribuir](#contribuir)
+- [Autoría y licencia](#autoría-y-licencia)
 
 ---
 
-## Qué hace
+## Descripción
 
-Una orden tiene un cliente, una o más líneas de producto, un total y un estado:
+### El problema
+
+Una orden de compra pasa por varios estados (se crea, se paga, se envía, se entrega o se cancela) y cada paso tiene reglas: no se puede enviar algo que no se ha pagado, ni cancelar algo que ya se entregó. Cuando esas reglas viven dispersas en el código, aparecen órdenes en estados imposibles, totales mal calculados y errores que el cliente de la API no sabe interpretar.
+
+### La solución
+
+Una API REST que concentra esas reglas en un dominio aislado y probado, y las expone con un contrato estable:
+
+- **Ciclo de vida completo** de la orden con una máquina de estados explícita: cada transición está permitida o rechazada en un único lugar.
+- **Total calculado en el servidor** con aritmética decimal exacta: el cliente no puede enviarlo ni manipularlo.
+- **Validación en dos niveles:** la API reporta todos los campos inválidos de una vez y el dominio nunca acepta una orden inválida.
+- **Errores predecibles** con formato estándar (RFC 9457) y un código estable para cada caso.
+- **Cancelación lógica:** cancelar no borra la orden; se conserva el historial.
+- **Protección ante cambios simultáneos** sobre la misma orden (bloqueo optimista).
+- **Trazabilidad de cada request** con un id de correlación presente en la respuesta y en los logs.
+- **Contrato publicado** en Swagger UI y **despliegue en contenedor** con healthcheck.
+
+### Modelo
+
+Una orden tiene un cliente, una o más líneas de producto, un total calculado y un estado:
 
 ```json
 {
-  "id": "0339e188-bd81-4dd9-a1c1-e223da0184b9",
+  "id": "d1fae6ec-f8c9-4e48-adf8-4e76089c668d",
   "cliente": "Juan Pérez",
-  "productos": [ { "id": "P001", "cantidad": 2, "valorUnitario": 100000 } ],
-  "total": 200000,
+  "productos": [
+    { "id": "P001", "cantidad": 2, "valorUnitario": 100000 },
+    { "id": "P002", "cantidad": 1, "valorUnitario": 35000.5 }
+  ],
+  "total": 235000.5,
   "estado": "CREADA"
 }
 ```
-
-| Método | Ruta | Descripción | Respuestas |
-|---|---|---|---|
-| `POST` | `/orders` | Crea una orden en estado `CREADA` | 201 · 400 |
-| `GET` | `/orders` | Lista las órdenes | 200 |
-| `GET` | `/orders/{id}` | Consulta una orden | 200 · 400 · 404 |
-| `PATCH` | `/orders/{id}/status` | Cambia el estado: `{ "estado": "PAGADA" }` | 200 · 400 · 404 · 409 |
-| `DELETE` | `/orders/{id}` | Cancela la orden (cancelación lógica) | 200 · 404 · 409 |
-
-El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml) y se publica en Swagger UI.
 
 ### Reglas de negocio
 
@@ -80,23 +101,53 @@ stateDiagram-v2
 
 La matriz completa de las 25 transiciones, con el código HTTP de cada una, está en [`docs/maquina-estados.md`](docs/maquina-estados.md).
 
-### Errores
+### Alcance
 
-Todas las respuestas de error usan `application/problem+json` (RFC 9457) con un `codigo` estable, para que los clientes no dependan del texto del mensaje:
+| Incluido | Fuera del alcance de esta versión |
+|---|---|
+| Crear, consultar, listar, cambiar de estado y cancelar órdenes | Autenticación y autorización |
+| Reglas de negocio y validaciones de entrada | Persistencia durable (H2 en memoria) |
+| Contrato OpenAPI y Swagger UI | Paginación y filtros en el listado |
+| Imagen Docker, pipeline de CI y quality gates | Pruebas de carga y rendimiento |
 
-| Código HTTP | `codigo` | Cuándo |
+---
+
+## Tecnologías
+
+| Ámbito | Tecnología | Versión |
 |---|---|---|
-| 400 | `VALIDACION` | Datos inválidos; `errores` indica cada campo (por ejemplo `productos[0].cantidad`) |
-| 400 | `ORDEN_NO_PAGADA` | Enviar una orden que no ha sido pagada (RN-05) |
-| 404 | `ORDEN_NO_ENCONTRADA` | La orden no existe |
-| 409 | `TRANSICION_INVALIDA` | Transición no permitida desde el estado actual (RN-04, RN-06) o modificación concurrente |
-| 500 | `ERROR_INTERNO` | Error inesperado, sin detalles internos en la respuesta |
+| Lenguaje y runtime | Java (Eclipse Temurin) | 17 |
+| Framework | Spring Boot · Spring Framework | 4.1.1 · 7.0 |
+| Web | Spring MVC sobre Tomcat | 11.0 |
+| Persistencia | Spring Data JPA sobre Hibernate · H2 | Hibernate 7.4 · H2 2.4 |
+| JSON | Jackson | 3.1 |
+| Documentación de la API | OpenAPI 3.0 · Swagger UI | 5.32 |
+| Build | Maven Wrapper | Maven 3.10 |
+| Pruebas unitarias e integración | JUnit · Mockito · AssertJ | 6.0 · 5.23 · 3.27 |
+| Arquitectura | ArchUnit | 1.5 |
+| Cobertura | JaCoCo | 0.8.15 |
+| Mutation testing | PIT | 1.30 |
+| Aceptación | Karate | 1.5.2 |
+| Contenedor | Docker · Docker Compose | — |
+| CI/CD | GitHub Actions · GitHub Container Registry | — |
+| Análisis estático | SonarCloud | — |
+
+---
+
+## Requisitos previos
+
+| Para | Necesitas |
+|---|---|
+| Ejecutar con Docker | Docker con Docker Compose |
+| Ejecutar localmente | Java 17 (no hace falta instalar Maven: el proyecto incluye Maven Wrapper) |
+| Ejecutar todas las pruebas | Java 17 |
+| Ejecutar las pruebas de aceptación sin Java | Docker |
 
 ---
 
 ## Inicio rápido
 
-### Con Docker (solo requiere Docker)
+### Con Docker
 
 ```bash
 docker build -t challenge-api .
@@ -109,16 +160,36 @@ O con Docker Compose, que espera a que la API esté lista:
 docker compose up --build -d --wait
 ```
 
-### Local (requiere Java 17)
+### Localmente
 
 ```bash
 ./mvnw spring-boot:run          # Windows: .\mvnw spring-boot:run
 ```
 
-### Probarla
+Con la API en marcha:
 
 - **Swagger UI:** http://localhost:8080/swagger-ui.html
 - **Salud:** http://localhost:8080/actuator/health
+
+La base de datos es H2 en memoria: cada arranque empieza vacío.
+
+---
+
+## Uso de la API
+
+| Método | Ruta | Descripción | Respuestas |
+|---|---|---|---|
+| `POST` | `/orders` | Crea una orden en estado `CREADA` | 201 · 400 |
+| `GET` | `/orders` | Lista las órdenes | 200 |
+| `GET` | `/orders/{id}` | Consulta una orden | 200 · 400 · 404 |
+| `PATCH` | `/orders/{id}/status` | Cambia el estado | 200 · 400 · 404 · 409 |
+| `DELETE` | `/orders/{id}` | Cancela la orden (cancelación lógica) | 200 · 404 · 409 |
+
+El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
+
+### Ejemplo: ciclo de vida de una orden
+
+**1. Crear la orden.** El total lo calcula el servidor:
 
 ```bash
 curl -i -X POST http://localhost:8080/orders \
@@ -126,7 +197,106 @@ curl -i -X POST http://localhost:8080/orders \
   -d '{"cliente":"Juan Pérez","productos":[{"id":"P001","cantidad":2,"valorUnitario":100000}]}'
 ```
 
-La base de datos es H2 en memoria: cada arranque empieza vacío.
+```http
+HTTP/1.1 201
+Location: http://localhost:8080/orders/d1fae6ec-f8c9-4e48-adf8-4e76089c668d
+X-Request-Id: 4bf1f04f-aca3-4518-96fe-4cf52c595728
+Content-Type: application/json
+
+{"id":"d1fae6ec-f8c9-4e48-adf8-4e76089c668d","cliente":"Juan Pérez","productos":[{"id":"P001","cantidad":2,"valorUnitario":100000}],"total":200000,"estado":"CREADA"}
+```
+
+**2. Intentar enviarla sin pagar.** La regla RN-05 lo impide:
+
+```bash
+curl -X PATCH http://localhost:8080/orders/{id}/status \
+  -H "Content-Type: application/json" -d '{"estado":"ENVIADA"}'
+```
+
+```json
+{
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "La orden no puede ser enviada si no ha sido pagada",
+  "instance": "/orders/d1fae6ec-f8c9-4e48-adf8-4e76089c668d/status",
+  "codigo": "ORDEN_NO_PAGADA"
+}
+```
+
+**3. Pagar, enviar y entregar.** Cada paso responde `200` con la orden actualizada:
+
+```bash
+curl -X PATCH http://localhost:8080/orders/{id}/status -H "Content-Type: application/json" -d '{"estado":"PAGADA"}'
+curl -X PATCH http://localhost:8080/orders/{id}/status -H "Content-Type: application/json" -d '{"estado":"ENVIADA"}'
+curl -X PATCH http://localhost:8080/orders/{id}/status -H "Content-Type: application/json" -d '{"estado":"ENTREGADA"}'
+```
+
+**4. Intentar cancelar la orden entregada.** La regla RN-04 lo impide:
+
+```bash
+curl -X DELETE http://localhost:8080/orders/{id}
+```
+
+```json
+{
+  "title": "Conflict",
+  "status": 409,
+  "detail": "No se puede pasar de ENTREGADA a CANCELADA",
+  "instance": "/orders/d1fae6ec-f8c9-4e48-adf8-4e76089c668d",
+  "codigo": "TRANSICION_INVALIDA"
+}
+```
+
+### Ejemplo: errores de validación
+
+Todos los campos inválidos se reportan en una sola respuesta:
+
+```json
+{
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "La solicitud contiene errores de validación",
+  "instance": "/orders",
+  "codigo": "VALIDACION",
+  "errores": [
+    { "campo": "cliente", "mensaje": "es obligatorio" },
+    { "campo": "productos[0].cantidad", "mensaje": "debe ser mayor que cero" },
+    { "campo": "productos[0].valorUnitario", "mensaje": "admite máximo 17 enteros y 2 decimales" }
+  ]
+}
+```
+
+### Errores
+
+Todas las respuestas de error usan `application/problem+json` (RFC 9457) con un `codigo` estable, para que los clientes no dependan del texto del mensaje:
+
+| Código HTTP | `codigo` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Datos inválidos; `errores` indica cada campo (por ejemplo `productos[0].cantidad`) |
+| 400 | `ORDEN_NO_PAGADA` | Enviar una orden que no ha sido pagada (RN-05) |
+| 404 | `ORDEN_NO_ENCONTRADA` | La orden no existe |
+| 409 | `TRANSICION_INVALIDA` | Transición no permitida desde el estado actual (RN-04, RN-06) o modificación concurrente |
+| 500 | `ERROR_INTERNO` | Error inesperado, sin detalles internos en la respuesta |
+
+### Id de correlación
+
+Envía el header `X-Request-Id` para seguir un request en los logs. Si no lo envías, o si no es seguro (solo se aceptan letras, números, `.`, `_` y `-`, hasta 64 caracteres), la API genera uno. Siempre se devuelve en la respuesta.
+
+---
+
+## Configuración
+
+La API funciona sin configuración. Estos son los valores que se pueden ajustar:
+
+| Qué | Cómo | Por defecto |
+|---|---|---|
+| Puerto | `--server.port=9090` o la variable `SERVER_PORT` | `8080` |
+| Formato de logs | Perfil `docker` (`SPRING_PROFILES_ACTIVE=docker`): logs JSON | Texto legible en local; JSON en la imagen Docker |
+| Memoria de la JVM en el contenedor | Variable `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75` (75 % de la memoria del contenedor) |
+| Puerto de la app en las pruebas de aceptación | `-Dacceptance.port=18080` | `18080` (no choca con una app en 8080) |
+| Entorno de Karate | `-Dkarate.env=local` · `docker` · `compose` | `local` |
+
+La configuración está en [`application.properties`](src/main/resources/application.properties) y en [`application-docker.properties`](src/main/resources/application-docker.properties), cada propiedad con un comentario que explica su motivo.
 
 ---
 
@@ -342,6 +512,46 @@ Prácticas para un uso responsable:
 
 ---
 
+## Limitaciones conocidas y próximos pasos
+
+| Limitación actual | Próximo paso posible |
+|---|---|
+| H2 en memoria: los datos se pierden al reiniciar | Base de datos persistente (por ejemplo PostgreSQL) con migraciones versionadas; solo cambia la capa `infrastructure` |
+| Sin autenticación ni autorización | OAuth 2.0 / JWT con Spring Security |
+| `GET /orders` sin paginación ni filtros | Paginación y filtro por estado, sin romper el contrato actual |
+| Imagen de 480 MB sin comprimir | Base JRE más liviana o un runtime reducido con `jlink` |
+| Actions fijadas por SHA que no se actualizan solas | Dependabot para proponer las actualizaciones con su revisión |
+| Sin historial de cambios de estado consultable | Auditoría de transiciones (quién, cuándo, de qué estado a cuál) |
+
+---
+
+## Solución de problemas
+
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| `Port 8080 was already in use` | Otra aplicación usa el puerto | Detenerla o arrancar con `--server.port=9090` |
+| `./mvnw: Permission denied` (Linux/macOS) | El script perdió el permiso de ejecución (por ejemplo, al descargar el repositorio como ZIP) | `chmod +x mvnw` |
+| Las tildes de los logs se ven mal en la consola de Windows | La consola de Windows no usa UTF-8 por defecto | Es solo visual: los datos no se alteran y los logs del contenedor (JSON) se ven correctamente |
+| `docker build` falla al descargar dependencias | Proxy o certificado de una red corporativa | Configurar el proxy en Docker o probar desde otra red |
+| Las pruebas de aceptación fallan con `connection refused` | La API no está levantada en la URL del entorno elegido | Con `-Pacceptance` Maven la levanta solo; con `-Dkarate.env=docker`, levantar antes el contenedor |
+| Un request de `curl` con tildes responde 400 en algunas terminales de Windows | La terminal envía el texto en otra codificación | Enviar el body desde un archivo UTF-8 o usar Swagger UI |
+
+---
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [`docs/api/openapi.yaml`](docs/api/openapi.yaml) | Contrato de la API |
+| [`docs/decisiones.md`](docs/decisiones.md) | Registro de las 22 decisiones técnicas (ADR) |
+| [`docs/maquina-estados.md`](docs/maquina-estados.md) | Matriz de transiciones y códigos HTTP |
+| [`docs/qa/estrategia-pruebas.md`](docs/qa/estrategia-pruebas.md) | Estrategia de pruebas, riesgos, pirámide y quality gates |
+| [`docs/qa/trazabilidad.md`](docs/qa/trazabilidad.md) | Relación de cada requisito con su riesgo y sus pruebas |
+| [`docs/docker.md`](docs/docker.md) | Ejecución con Docker y evidencia de verificación |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Commits, ramas, pull requests y versiones |
+
+---
+
 ## Estructura del repositorio
 
 ```
@@ -363,6 +573,16 @@ Prácticas para un uso responsable:
 └── .github/workflows/ci.yml
 ```
 
-## Licencia
+---
 
-[MIT](LICENSE)
+## Contribuir
+
+Las convenciones de commits, ramas y pull requests están en [`CONTRIBUTING.md`](CONTRIBUTING.md). En resumen: una rama por cambio, TDD (prueba primero), Conventional Commits y un pull request que solo se integra con los quality gates en verde.
+
+---
+
+## Autoría y licencia
+
+Desarrollado por **Natalia Garcia** ([@NataliaGarciaB](https://github.com/NataliaGarciaB)).
+
+Distribuido bajo la licencia [MIT](LICENSE).
