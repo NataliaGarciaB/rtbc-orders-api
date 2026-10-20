@@ -191,7 +191,7 @@ components:
           type: number
           minimum: 0.01
           multipleOf: 0.01
-          description: Mayor que cero, máximo 2 decimales
+          description: Mayor que cero, máximo 2 decimales. Las respuestas lo expresan siempre con 2 decimales
           example: 100000
     CreateOrderRequest:
       type: object
@@ -229,7 +229,7 @@ components:
             $ref: '#/components/schemas/ProductLine'
         total:
           type: number
-          description: Σ cantidad × valorUnitario, calculado en servidor (RN-03)
+          description: Σ cantidad × valorUnitario, calculado en servidor (RN-03), siempre con 2 decimales
           example: 200000
         estado:
           $ref: '#/components/schemas/OrderStatus'

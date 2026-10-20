@@ -53,7 +53,7 @@ Una orden de compra pasa por varios estados (se crea, se paga, se envía, se ent
 Una API REST que concentra esas reglas en un dominio aislado y probado, y las expone con un contrato estable:
 
 - **Ciclo de vida completo** de la orden con una máquina de estados explícita: cada transición está permitida o rechazada en un único lugar.
-- **Total calculado en el servidor** con aritmética decimal exacta: el cliente no puede enviarlo ni manipularlo.
+- **Total calculado en el servidor** con aritmética decimal exacta: el cliente no puede enviarlo ni manipularlo, y los montos se expresan siempre con 2 decimales.
 - **Validación en dos niveles:** la API reporta todos los campos inválidos de una vez y el dominio nunca acepta una orden inválida.
 - **Errores predecibles** con formato estándar (RFC 9457) y un código estable para cada caso.
 - **Cancelación lógica:** cancelar no borra la orden; se conserva el historial.
@@ -70,10 +70,10 @@ Una orden tiene un cliente, una o más líneas de producto, un total calculado y
   "id": "d1fae6ec-f8c9-4e48-adf8-4e76089c668d",
   "cliente": "Juan Pérez",
   "productos": [
-    { "id": "P001", "cantidad": 2, "valorUnitario": 100000 },
-    { "id": "P002", "cantidad": 1, "valorUnitario": 35000.5 }
+    { "id": "P001", "cantidad": 2, "valorUnitario": 100000.00 },
+    { "id": "P002", "cantidad": 1, "valorUnitario": 35000.50 }
   ],
-  "total": 235000.5,
+  "total": 235000.50,
   "estado": "CREADA"
 }
 ```
@@ -370,7 +370,7 @@ Location: http://localhost:8080/orders/d1fae6ec-f8c9-4e48-adf8-4e76089c668d
 X-Request-Id: 4bf1f04f-aca3-4518-96fe-4cf52c595728
 Content-Type: application/json
 
-{"id":"d1fae6ec-f8c9-4e48-adf8-4e76089c668d","cliente":"Juan Pérez","productos":[{"id":"P001","cantidad":2,"valorUnitario":100000}],"total":200000,"estado":"CREADA"}
+{"id":"d1fae6ec-f8c9-4e48-adf8-4e76089c668d","cliente":"Juan Pérez","productos":[{"id":"P001","cantidad":2,"valorUnitario":100000.00}],"total":200000.00,"estado":"CREADA"}
 ```
 
 **2. Intentar enviarla sin pagar.** La regla RN-05 lo impide:

@@ -80,7 +80,7 @@ Cada decisión registra el contexto, la opción elegida y su consecuencia. Si un
 ## ADR-007: Total calculado en el servidor con BigDecimal
 - **Contexto:** RN-03 pide calcular el total automáticamente. Usar `double` produce errores de redondeo en valores monetarios.
 - **Decisión:** `total = Σ cantidad × valorUnitario`, calculado en el dominio con `BigDecimal`. Si el request trae `total` o `estado`, se ignoran: la orden siempre nace en `CREADA` con el total calculado.
-- **Consecuencia:** el cliente no puede manipular el total. Las pruebas verifican que un `total` enviado a propósito con valor incorrecto sea ignorado.
+- **Consecuencia:** el cliente no puede manipular el total. Las pruebas verifican que un `total` enviado a propósito con valor incorrecto sea ignorado. Los montos se normalizan a 2 decimales en el dominio, así la API responde el mismo formato al crear y al consultar (`100000.00`), aunque el cliente envíe `100000` o `1E+5`.
 
 ## ADR-008: Validaciones de entrada
 - **Contexto:** RN-01 (al menos un producto) y RN-02 (cantidad mayor que cero) no cubren todos los datos de entrada. Hay otros datos que, si llegan inválidos, corrompen el total o la orden.
