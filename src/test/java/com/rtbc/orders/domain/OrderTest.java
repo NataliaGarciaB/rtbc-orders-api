@@ -5,6 +5,7 @@ import static com.rtbc.orders.domain.OrderFixtures.line;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +89,16 @@ class OrderTest {
 	@Tag("RN-03")
 	@DisplayName("RN-03: el total se calcula automáticamente")
 	class Total {
+
+		@Test
+		@DisplayName("el total siempre tiene 2 decimales: 2 × 100000 + 1 × 35000.5 = 235000.50")
+		void totalConDosDecimales() {
+			Order order = Order.create(CUSTOMER, List.of(
+					line("P001", 2, "100000"),
+					line("P002", 1, "35000.5")));
+
+			assertThat(order.total()).isEqualTo(new BigDecimal("235000.50"));
+		}
 
 		@Test
 		@DisplayName("una línea: 2 × 100000 = 200000 (ejemplo de referencia)")
