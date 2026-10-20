@@ -16,17 +16,20 @@ API REST para gestionar órdenes de compra: creación, consulta y ciclo de vida 
 | **Calidad actual** | 148 pruebas JUnit · 30 escenarios de aceptación · cobertura 100 % de líneas y ramas · mutation score 100 % |
 
 ## Contenido
-- [Descripción](#descripción)
-- [Tecnologías](#tecnologías)
-- [Requisitos previos](#requisitos-previos)
-- [Inicio rápido](#inicio-rápido)
-- [Uso de la API](#uso-de-la-api)
-- [Configuración](#configuración)
+
+**Lo esencial**
+- [Descripción de la solución](#descripción-de-la-solución)
 - [Arquitectura](#arquitectura)
 - [Decisiones técnicas](#decisiones-técnicas)
-- [Estrategia de calidad](#estrategia-de-calidad)
+- [Cómo ejecutar la aplicación](#cómo-ejecutar-la-aplicación)
 - [Cómo ejecutar las pruebas](#cómo-ejecutar-las-pruebas)
-- [Evidencias](#evidencias)
+- [Evidencias](#evidencias): [cobertura](#evidencia-de-cobertura) · [mutation testing](#evidencia-de-mutation-testing) · [pipeline](#evidencia-del-pipeline)
+
+**Más detalles**
+- [Estrategia de calidad](#estrategia-de-calidad)
+- [Uso de la API](#uso-de-la-api)
+- [Configuración](#configuración)
+- [Tecnologías](#tecnologías)
 - [Observabilidad](#observabilidad)
 - [Versionamiento](#versionamiento)
 - [Uso de IA](#uso-de-ia)
@@ -39,7 +42,7 @@ API REST para gestionar órdenes de compra: creación, consulta y ciclo de vida 
 
 ---
 
-## Descripción
+## Descripción de la solución
 
 ### El problema
 
@@ -112,29 +115,65 @@ La matriz completa de las 25 transiciones, con el código HTTP de cada una, est�
 
 ---
 
-## Tecnologías
+## Arquitectura
 
-| Ámbito | Tecnología | Versión |
+Arquitectura hexagonal en cuatro capas. Las dependencias apuntan siempre hacia el dominio, y una prueba de ArchUnit rompe el build si alguna regla se viola.
+
+```mermaid
+flowchart LR
+    subgraph entrypoint["entrypoint"]
+        C["OrderController<br/>DTOs + Bean Validation<br/>GlobalExceptionHandler<br/>RequestIdFilter"]
+    end
+    subgraph application["application"]
+        U["Casos de uso<br/>CreateOrder · GetOrder · ListOrders<br/>ChangeOrderStatus · CancelOrder"]
+        P(["OrderRepository<br/>(puerto)"])
+    end
+    subgraph domain["domain (sin Spring)"]
+        D["Order · ProductLine<br/>OrderStatus (máquina de estados)<br/>errores con código"]
+    end
+    subgraph infrastructure["infrastructure"]
+        J["JpaOrderRepository<br/>OrderEntity (@Version)"]
+    end
+    C --> U
+    U --> D
+    U --> P
+    J -. implementa .-> P
+    J --> D
+    J --> H2[("H2")]
+```
+
+| Capa | Responsabilidad | Regla |
 |---|---|---|
-| Lenguaje y runtime | Java (Eclipse Temurin) | 17 |
-| Framework | Spring Boot · Spring Framework | 4.1.1 · 7.0 |
-| Web | Spring MVC sobre Tomcat | 11.0 |
-| Persistencia | Spring Data JPA sobre Hibernate · H2 | Hibernate 7.4 · H2 2.4 |
-| JSON | Jackson | 3.1 |
-| Documentación de la API | OpenAPI 3.0 · Swagger UI | 5.32 |
-| Build | Maven Wrapper | Maven 3.10 |
-| Pruebas unitarias e integración | JUnit · Mockito · AssertJ | 6.0 · 5.23 · 3.27 |
-| Arquitectura | ArchUnit | 1.5 |
-| Cobertura | JaCoCo | 0.8.15 |
-| Mutation testing | PIT | 1.30 |
-| Aceptación | Karate | 1.5.2 |
-| Contenedor | Docker · Docker Compose | — |
-| CI/CD | GitHub Actions · GitHub Container Registry | — |
-| Análisis estático | SonarCloud | — |
+| `domain` | Entidades, máquina de estados y reglas RN-01 a RN-06 | No depende de ninguna otra capa ni de frameworks |
+| `application` | Un caso de uso por acción y el puerto de persistencia | Depende solo de `domain` |
+| `infrastructure` | Adaptador JPA/H2 que implementa el puerto | Nadie depende de ella |
+| `entrypoint` | Controlador REST, DTOs, manejo de errores y filtro de correlación | Nadie depende de ella |
+
+El dominio se prueba con JUnit puro, sin levantar Spring, en milisegundos. Cambiar H2 por otra base de datos solo afectaría a `infrastructure`.
 
 ---
 
-## Requisitos previos
+## Decisiones técnicas
+
+Cada decisión está registrada con su contexto y consecuencias en [`docs/decisiones.md`](docs/decisiones.md) (22 ADR). Las más relevantes:
+
+| Decisión | Por qué |
+|---|---|
+| Máquina de estados centralizada en `OrderStatus` | Un único lugar define las transiciones; la matriz completa se prueba con una sola prueba parametrizada |
+| 400 para enviar sin pagar, 409 para el resto de transiciones inválidas | 400 indica una precondición incumplida; 409, un conflicto con el estado actual del recurso |
+| `DELETE` como cancelación lógica que responde 200 con la orden | Se conserva el historial y el resultado se verifica sin una segunda llamada |
+| Total calculado en el dominio con `BigDecimal` | El cliente no puede manipularlo y no hay errores de redondeo |
+| Validación en el dominio y en los DTOs | El dominio nunca queda inválido; los DTOs reportan todos los errores de una vez |
+| Bloqueo optimista con `@Version` | Dos cambios simultáneos sobre la misma orden no pueden saltarse la máquina de estados |
+| Contrato de diseño como única fuente de verdad | Swagger UI publica `openapi.yaml` tal cual; no hay una segunda especificación generada que pueda contradecirlo |
+| Lectura y escritura estricta de JSON | Una cantidad `1.5` se rechaza en lugar de truncarse a `1`; los decimales nunca salen en notación científica |
+| Spring Boot 4.1 | La línea 3.x terminó su soporte gratuito el 2026-06-30 |
+| Karate contra el contenedor en CI | Las pruebas de aceptación validan el mismo artefacto que se entrega |
+| Actions fijadas por SHA de commit | Una etiqueta como `@v7` se puede mover; fijar el SHA protege el pipeline de la cadena de suministro |
+
+---
+
+## Cómo ejecutar la aplicación
 
 | Para | Necesitas |
 |---|---|
@@ -142,10 +181,6 @@ La matriz completa de las 25 transiciones, con el código HTTP de cada una, est�
 | Ejecutar localmente | Java 17 (no hace falta instalar Maven: el proyecto incluye Maven Wrapper) |
 | Ejecutar todas las pruebas | Java 17 |
 | Ejecutar las pruebas de aceptación sin Java | Docker |
-
----
-
-## Inicio rápido
 
 ### Con Docker
 
@@ -172,6 +207,138 @@ Con la API en marcha:
 - **Salud:** http://localhost:8080/actuator/health
 
 La base de datos es H2 en memoria: cada arranque empieza vacío.
+
+Para un recorrido completo por la API con ejemplos de requests y respuestas, ver [Uso de la API](#uso-de-la-api).
+
+---
+
+## Cómo ejecutar las pruebas
+
+| Qué | Comando |
+|---|---|
+| Unitarias, integración y cobertura (con umbral) | `./mvnw verify` |
+| Una sola regla de negocio | `./mvnw test -Dgroups=RN-05` |
+| Mutation testing (con umbral) | `./mvnw test-compile org.pitest:pitest-maven:mutationCoverage` |
+| Aceptación: levanta la app, ejecuta Karate y la apaga | `./mvnw verify -Pacceptance` |
+| Aceptación de una sola regla | `./mvnw verify -Pacceptance -Dkarate.tags=@RN-05` |
+| Aceptación contra el contenedor, sin Java | `docker compose --profile acceptance run --rm karate` |
+| Verificación completa de la imagen Docker (Windows) | `powershell -ExecutionPolicy Bypass -File .\scripts\verificar-docker.ps1` |
+
+Reportes generados:
+
+| Reporte | Ubicación |
+|---|---|
+| Cobertura (JaCoCo) | `target/site/jacoco/index.html` |
+| Mutación (PIT) | `target/pit-reports/index.html` |
+| Aceptación (Karate) | `target/karate-reports/karate-summary.html` |
+
+---
+
+## Evidencias
+
+Las cifras corresponden a la [ejecución del pipeline en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865). Cada ejecución publica los reportes completos como artifacts y un resumen de métricas.
+
+### Evidencia de cobertura
+
+**100 % de líneas (249/249) y 100 % de ramas (57/57)** con JaCoCo; el umbral mínimo del pipeline es 80 %.
+
+- Reporte: artifact `cobertura-jacoco` de cada ejecución; en local, `target/site/jacoco/index.html`.
+- Solo se excluye la clase de arranque de Spring Boot, que no tiene lógica ([ADR-013](docs/decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación)).
+- La misma cobertura se publica en [SonarCloud](https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api).
+
+### Evidencia de mutation testing
+
+**66 de 66 mutantes eliminados (100 %)** con PIT y sus mutadores STRONGER sobre `domain` y `application`; el umbral mínimo del pipeline es 70 %.
+
+- Reporte: artifact `mutacion-pit` de cada ejecución; en local, `target/pit-reports/index.html`.
+
+### Evidencia del pipeline
+
+[Ejecución completa en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865) con los cinco jobs en verde. Historial: [GitHub Actions](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/workflows/ci.yml).
+
+#### Quality gates
+
+Cada gate es un job del pipeline y un check obligatorio para hacer merge a `main`:
+
+| Gate | Umbral | Job |
+|---|---|---|
+| Pruebas | 0 fallidas, también ejecutadas en orden inverso | `build` |
+| Cobertura de líneas y de ramas | ≥ 80 % | `build` (JaCoCo) |
+| Mutation score | ≥ 70 % | `mutation` (PIT) |
+| Aceptación | 30/30 escenarios contra el contenedor | `acceptance` (Karate) |
+| Análisis estático | Quality gate de SonarCloud en verde | `sonar` |
+
+```mermaid
+flowchart LR
+    B[build] --> M[mutation]
+    B --> A[acceptance]
+    B --> S[sonar]
+    M --> P[publish]
+    A --> P
+    S --> P
+    P --> G[("ghcr.io")]
+```
+
+`publish` solo corre en `main` y en tags `v*`, y publica en GHCR la misma imagen que validó Karate.
+
+#### El pipeline bloquea cambios que no cumplen los quality gates
+
+El [PR #9](https://github.com/NataliaGarciaB/rtbc-orders-api/pull/9) introdujo a propósito tres problemas, uno por ejecución, y se cerró sin merge:
+
+| Etapa | Cambio | Resultado | Ejecución |
+|---|---|---|---|
+| 1 | Se rompe RN-05 | ❌ `build`: 4 pruebas fallan | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39338585896) |
+| 2 | Código nuevo sin pruebas | ❌ `build`: las pruebas pasan, pero la cobertura de ramas baja a 72 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39339430837) |
+| 3 | Una prueba que ejecuta el código sin verificar nada | ✅ `build` (100 % de líneas) y ✅ `sonar` · ❌ `mutation`: 66 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39340382138) |
+
+La etapa 3 muestra por qué el mutation testing es un gate: la cobertura y el análisis estático dieron el cambio por bueno porque el código se ejecuta, pero solo PIT detectó que la prueba no verifica ningún resultado.
+
+#### Otras verificaciones
+
+| Verificación | Resultado | Detalle |
+|---|---|---|
+| Aceptación (Karate contra el contenedor) | **30 de 30 escenarios** en 6 features | Artifact `aceptacion-karate`; se inyectaron defectos para comprobar que los escenarios críticos los detectan ([detalle](docs/qa/estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate)) |
+| Análisis estático (SonarCloud) | **Quality gate en verde**, calificación A en seguridad, confiabilidad y mantenibilidad | [Proyecto en SonarCloud](https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api) |
+| Imagen Docker | Construcción, ejecución, contenedor `healthy`, usuario sin privilegios, logs JSON y Karate: 9 de 9 verificaciones | [docs/docker.md](docs/docker.md#evidencia-de-ejecución) |
+
+En el primer análisis, SonarCloud detectó que las actions del pipeline estaban referenciadas por etiqueta (`@v7`) y no por SHA, un riesgo de cadena de suministro. Se corrigió fijando todas por SHA de commit.
+
+---
+
+# Más detalles
+
+## Estrategia de calidad
+
+La estrategia completa está en [`docs/qa/estrategia-pruebas.md`](docs/qa/estrategia-pruebas.md) y la relación de cada regla con su riesgo y sus pruebas en [`docs/qa/trazabilidad.md`](docs/qa/trazabilidad.md).
+
+### Basada en riesgo
+
+El esfuerzo de prueba se concentra donde un fallo hace más daño:
+
+| Riesgo | Nivel | Cómo se mitiga |
+|---|---|---|
+| R01: se permite una transición inválida | **Alto** | Matriz de 25 transiciones en el dominio, casos de uso, API y muestra en Karate |
+| R02: total mal calculado o manipulado | **Alto** | Decimales, valores grandes y total enviado por el cliente, de punta a punta hasta la base de datos |
+| R03: se crea una orden inválida | **Alto** | Valores límite en dominio, DTO y Karate |
+| R09: pruebas que pasan sin detectar regresiones | **Alto** | Mutation testing con PIT (mutadores STRONGER) |
+| R04-R06: errores inconsistentes, entradas inesperadas, fuga de información | Medio | Pruebas de integración web y del manejador de errores |
+| R07: el contenedor se comporta distinto que en local | Medio | Karate contra el contenedor en cada ejecución del pipeline |
+| R08: cambios concurrentes | Bajo | Prueba con dos transacciones reales |
+
+### Pirámide de pruebas
+
+Cada comportamiento se prueba en el nivel más bajo posible; los niveles superiores confirman la integración.
+
+| Nivel | Herramienta | Cantidad |
+|---|---|---|
+| Aceptación sobre el contenedor | Karate | 30 escenarios |
+| Integración web y de aplicación | `@WebMvcTest`, `@SpringBootTest` | 55 pruebas |
+| Integración de persistencia | `@DataJpaTest` (H2) | 6 pruebas |
+| Arquitectura | ArchUnit | 2 reglas |
+| Unitarias de casos de uso | JUnit + Mockito | 16 pruebas |
+| Unitarias de dominio | JUnit | 69 pruebas |
+
+Técnicas de diseño: transición de estados (matriz completa), valores límite, particiones de equivalencia y tablas de decisión.
 
 ---
 
@@ -300,173 +467,25 @@ La configuración está en [`application.properties`](src/main/resources/applica
 
 ---
 
-## Arquitectura
+## Tecnologías
 
-Arquitectura hexagonal en cuatro capas. Las dependencias apuntan siempre hacia el dominio, y una prueba de ArchUnit rompe el build si alguna regla se viola.
-
-```mermaid
-flowchart LR
-    subgraph entrypoint["entrypoint"]
-        C["OrderController<br/>DTOs + Bean Validation<br/>GlobalExceptionHandler<br/>RequestIdFilter"]
-    end
-    subgraph application["application"]
-        U["Casos de uso<br/>CreateOrder · GetOrder · ListOrders<br/>ChangeOrderStatus · CancelOrder"]
-        P(["OrderRepository<br/>(puerto)"])
-    end
-    subgraph domain["domain (sin Spring)"]
-        D["Order · ProductLine<br/>OrderStatus (máquina de estados)<br/>errores con código"]
-    end
-    subgraph infrastructure["infrastructure"]
-        J["JpaOrderRepository<br/>OrderEntity (@Version)"]
-    end
-    C --> U
-    U --> D
-    U --> P
-    J -. implementa .-> P
-    J --> D
-    J --> H2[("H2")]
-```
-
-| Capa | Responsabilidad | Regla |
+| Ámbito | Tecnología | Versión |
 |---|---|---|
-| `domain` | Entidades, máquina de estados y reglas RN-01 a RN-06 | No depende de ninguna otra capa ni de frameworks |
-| `application` | Un caso de uso por acción y el puerto de persistencia | Depende solo de `domain` |
-| `infrastructure` | Adaptador JPA/H2 que implementa el puerto | Nadie depende de ella |
-| `entrypoint` | Controlador REST, DTOs, manejo de errores y filtro de correlación | Nadie depende de ella |
-
-El dominio se prueba con JUnit puro, sin levantar Spring, en milisegundos. Cambiar H2 por otra base de datos solo afectaría a `infrastructure`.
-
----
-
-## Decisiones técnicas
-
-Cada decisión está registrada con su contexto y consecuencias en [`docs/decisiones.md`](docs/decisiones.md) (22 ADR). Las más relevantes:
-
-| Decisión | Por qué |
-|---|---|
-| Máquina de estados centralizada en `OrderStatus` | Un único lugar define las transiciones; la matriz completa se prueba con una sola prueba parametrizada |
-| 400 para enviar sin pagar, 409 para el resto de transiciones inválidas | 400 indica una precondición incumplida; 409, un conflicto con el estado actual del recurso |
-| `DELETE` como cancelación lógica que responde 200 con la orden | Se conserva el historial y el resultado se verifica sin una segunda llamada |
-| Total calculado en el dominio con `BigDecimal` | El cliente no puede manipularlo y no hay errores de redondeo |
-| Validación en el dominio y en los DTOs | El dominio nunca queda inválido; los DTOs reportan todos los errores de una vez |
-| Bloqueo optimista con `@Version` | Dos cambios simultáneos sobre la misma orden no pueden saltarse la máquina de estados |
-| Contrato de diseño como única fuente de verdad | Swagger UI publica `openapi.yaml` tal cual; no hay una segunda especificación generada que pueda contradecirlo |
-| Lectura y escritura estricta de JSON | Una cantidad `1.5` se rechaza en lugar de truncarse a `1`; los decimales nunca salen en notación científica |
-| Spring Boot 4.1 | La línea 3.x terminó su soporte gratuito el 2026-06-30 |
-| Karate contra el contenedor en CI | Las pruebas de aceptación validan el mismo artefacto que se entrega |
-| Actions fijadas por SHA de commit | Una etiqueta como `@v7` se puede mover; fijar el SHA protege el pipeline de la cadena de suministro |
-
----
-
-## Estrategia de calidad
-
-La estrategia completa está en [`docs/qa/estrategia-pruebas.md`](docs/qa/estrategia-pruebas.md) y la relación de cada regla con su riesgo y sus pruebas en [`docs/qa/trazabilidad.md`](docs/qa/trazabilidad.md).
-
-### Basada en riesgo
-
-El esfuerzo de prueba se concentra donde un fallo hace más daño:
-
-| Riesgo | Nivel | Cómo se mitiga |
-|---|---|---|
-| R01: se permite una transición inválida | **Alto** | Matriz de 25 transiciones en el dominio, casos de uso, API y muestra en Karate |
-| R02: total mal calculado o manipulado | **Alto** | Decimales, valores grandes y total enviado por el cliente, de punta a punta hasta la base de datos |
-| R03: se crea una orden inválida | **Alto** | Valores límite en dominio, DTO y Karate |
-| R09: pruebas que pasan sin detectar regresiones | **Alto** | Mutation testing con PIT (mutadores STRONGER) |
-| R04-R06: errores inconsistentes, entradas inesperadas, fuga de información | Medio | Pruebas de integración web y del manejador de errores |
-| R07: el contenedor se comporta distinto que en local | Medio | Karate contra el contenedor en cada ejecución del pipeline |
-| R08: cambios concurrentes | Bajo | Prueba con dos transacciones reales |
-
-### Pirámide de pruebas
-
-Cada comportamiento se prueba en el nivel más bajo posible; los niveles superiores confirman la integración.
-
-| Nivel | Herramienta | Cantidad |
-|---|---|---|
-| Aceptación sobre el contenedor | Karate | 30 escenarios |
-| Integración web y de aplicación | `@WebMvcTest`, `@SpringBootTest` | 55 pruebas |
-| Integración de persistencia | `@DataJpaTest` (H2) | 6 pruebas |
-| Arquitectura | ArchUnit | 2 reglas |
-| Unitarias de casos de uso | JUnit + Mockito | 16 pruebas |
-| Unitarias de dominio | JUnit | 69 pruebas |
-
-Técnicas de diseño: transición de estados (matriz completa), valores límite, particiones de equivalencia y tablas de decisión.
-
-### Quality gates
-
-Cada gate es un job del pipeline y un check obligatorio para hacer merge a `main`:
-
-| Gate | Umbral | Job |
-|---|---|---|
-| Pruebas | 0 fallidas, también ejecutadas en orden inverso | `build` |
-| Cobertura de líneas y de ramas | ≥ 80 % | `build` (JaCoCo) |
-| Mutation score | ≥ 70 % | `mutation` (PIT) |
-| Aceptación | 30/30 escenarios contra el contenedor | `acceptance` (Karate) |
-| Análisis estático | Quality gate de SonarCloud en verde | `sonar` |
-
-```mermaid
-flowchart LR
-    B[build] --> M[mutation]
-    B --> A[acceptance]
-    B --> S[sonar]
-    M --> P[publish]
-    A --> P
-    S --> P
-    P --> G[("ghcr.io")]
-```
-
-`publish` solo corre en `main` y en tags `v*`, y publica en GHCR la misma imagen que validó Karate.
-
----
-
-## Cómo ejecutar las pruebas
-
-| Qué | Comando |
-|---|---|
-| Unitarias, integración y cobertura (con umbral) | `./mvnw verify` |
-| Una sola regla de negocio | `./mvnw test -Dgroups=RN-05` |
-| Mutation testing (con umbral) | `./mvnw test-compile org.pitest:pitest-maven:mutationCoverage` |
-| Aceptación: levanta la app, ejecuta Karate y la apaga | `./mvnw verify -Pacceptance` |
-| Aceptación de una sola regla | `./mvnw verify -Pacceptance -Dkarate.tags=@RN-05` |
-| Aceptación contra el contenedor, sin Java | `docker compose --profile acceptance run --rm karate` |
-| Verificación completa de la imagen Docker (Windows) | `powershell -ExecutionPolicy Bypass -File .\scripts\verificar-docker.ps1` |
-
-Reportes generados:
-
-| Reporte | Ubicación |
-|---|---|
-| Cobertura (JaCoCo) | `target/site/jacoco/index.html` |
-| Mutación (PIT) | `target/pit-reports/index.html` |
-| Aceptación (Karate) | `target/karate-reports/karate-summary.html` |
-
----
-
-## Evidencias
-
-Todas las cifras corresponden a la [ejecución del pipeline en `main`](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39342687865). Cada ejecución publica los reportes completos como artifacts y un resumen de métricas.
-
-| Evidencia | Resultado | Reporte |
-|---|---|---|
-| Cobertura (JaCoCo) | **100 % de líneas (249/249) y de ramas (57/57)** | Artifact `cobertura-jacoco` · local: `target/site/jacoco/index.html` |
-| Mutation testing (PIT, mutadores STRONGER) | **66 de 66 mutantes eliminados (100 %)** | Artifact `mutacion-pit` · local: `target/pit-reports/index.html` |
-| Aceptación (Karate contra el contenedor) | **30 de 30 escenarios** en 6 features | Artifact `aceptacion-karate` · local: `target/karate-reports/karate-summary.html` |
-| Análisis estático (SonarCloud) | **Quality gate en verde**, calificación A en seguridad, confiabilidad y mantenibilidad | [Proyecto en SonarCloud](https://sonarcloud.io/project/overview?id=NataliaGarciaB_rtbc-orders-api) |
-| Imagen Docker | Construcción, ejecución, contenedor `healthy`, usuario sin privilegios, logs JSON y Karate: 9 de 9 verificaciones | [docs/docker.md](docs/docker.md#evidencia-de-ejecución) |
-
-La cobertura solo excluye la clase de arranque de Spring Boot, que no tiene lógica ([ADR-013](docs/decisiones.md#adr-013-exclusiones-de-cobertura-y-mutación)). Para comprobar que las pruebas de aceptación detectan errores, se introdujeron temporalmente defectos en las reglas que cubren los escenarios críticos, y todos fueron detectados ([detalle](docs/qa/estrategia-pruebas.md#9-pruebas-de-aceptación-con-karate)).
-
-### El pipeline bloquea cambios que no cumplen los quality gates
-
-El [PR #9](https://github.com/NataliaGarciaB/rtbc-orders-api/pull/9) introdujo a propósito tres problemas, uno por ejecución, y se cerró sin merge:
-
-| Etapa | Cambio | Resultado | Ejecución |
-|---|---|---|---|
-| 1 | Se rompe RN-05 | ❌ `build`: 4 pruebas fallan | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39338585896) |
-| 2 | Código nuevo sin pruebas | ❌ `build`: las pruebas pasan, pero la cobertura de ramas baja a 72 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39339430837) |
-| 3 | Una prueba que ejecuta el código sin verificar nada | ✅ `build` (100 % de líneas) y ✅ `sonar` · ❌ `mutation`: 66 % | [ver](https://github.com/NataliaGarciaB/rtbc-orders-api/actions/runs/39340382138) |
-
-La etapa 3 muestra por qué el mutation testing es un gate: la cobertura y el análisis estático dieron el cambio por bueno porque el código se ejecuta, pero solo PIT detectó que la prueba no verifica ningún resultado.
-
-En el primer análisis, SonarCloud detectó que las actions del pipeline estaban referenciadas por etiqueta (`@v7`) y no por SHA, un riesgo de cadena de suministro. Se corrigió fijando todas por SHA de commit.
+| Lenguaje y runtime | Java (Eclipse Temurin) | 17 |
+| Framework | Spring Boot · Spring Framework | 4.1.1 · 7.0 |
+| Web | Spring MVC sobre Tomcat | 11.0 |
+| Persistencia | Spring Data JPA sobre Hibernate · H2 | Hibernate 7.4 · H2 2.4 |
+| JSON | Jackson | 3.1 |
+| Documentación de la API | OpenAPI 3.0 · Swagger UI | 5.32 |
+| Build | Maven Wrapper | Maven 3.10 |
+| Pruebas unitarias e integración | JUnit · Mockito · AssertJ | 6.0 · 5.23 · 3.27 |
+| Arquitectura | ArchUnit | 1.5 |
+| Cobertura | JaCoCo | 0.8.15 |
+| Mutation testing | PIT | 1.30 |
+| Aceptación | Karate | 1.5.2 |
+| Contenedor | Docker · Docker Compose | — |
+| CI/CD | GitHub Actions · GitHub Container Registry | — |
+| Análisis estático | SonarCloud | — |
 
 ---
 
